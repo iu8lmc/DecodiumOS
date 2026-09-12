@@ -1,0 +1,10 @@
+# SDR receivers and tools
+gqrx-sdr            # SDR receiver (RTL-SDR, HackRF, Airspy, SoapySDR)
+rtl-sdr             # RTL2832U tools and udev rules (blacklists the DVB driver)
+soapysdr-tools      # SoapySDRUtil device probing
+soapysdr-module-all # SoapySDR hardware drivers (CubicSDR sees no device without them)
+hackrf              # HackRF One tools
+airspy              # Airspy tools
+cubicsdr            # SDR receiver with waterfall
+inspectrum          # offline signal analysis
+multimon-ng         # POCSAG, EAS, DTMF, AFSK decoders

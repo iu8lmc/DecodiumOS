@@ -391,7 +391,7 @@ EOF
     cat << EOF > image/README.md
 # $TARGET_BUSINESS_NAME $TARGET_BUILD_VERSION
 
-$TARGET_BUSINESS_NAME is a custom Ubuntu-based Linux distribution that offers a familiar and easy-to-use experience for anyone moving to Linux.
+$TARGET_BUSINESS_NAME is a Linux distribution for amateur radio operators, based on $UPSTREAM_BASE_NAME (Ubuntu $TARGET_UBUNTU_VERSION). It ships Decodium, WSJT-X, Fldigi, JS8Call, Hamlib, flrig, Dire Wolf, Gpredict and SDR tools ready to use.
 
 This image is built with the following configurations:
 
@@ -418,7 +418,7 @@ Press F12 to enter the boot menu when you start your computer. Select the USB dr
 
 ## More information
 
-For detailed instructions, please visit the [$TARGET_BUSINESS_NAME documentation](https://docs.anduinos.com/Install/System-Requirements.html).
+For system requirements and installation details, see the [$UPSTREAM_BASE_NAME documentation](https://docs.anduinos.com/Install/System-Requirements.html) and [$TARGET_HOME_URL]($TARGET_HOME_URL).
 EOF
 
     pushd image

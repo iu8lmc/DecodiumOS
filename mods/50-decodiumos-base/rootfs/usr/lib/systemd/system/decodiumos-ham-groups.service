@@ -1,0 +1,11 @@
+[Unit]
+Description=Grant local users access to amateur radio serial ports
+After=local-fs.target
+Before=systemd-user-sessions.service display-manager.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/decodiumos/ham-groups
+
+[Install]
+WantedBy=multi-user.target

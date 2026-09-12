@@ -1,0 +1,6 @@
+# The build runs on Linux: shell scripts, maintainer scripts and config files
+# must keep LF line endings even when the repository is checked out on Windows.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.iso binary

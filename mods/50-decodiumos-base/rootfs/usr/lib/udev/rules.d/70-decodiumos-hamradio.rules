@@ -1,0 +1,14 @@
+# DecodiumOS: amateur radio device access.
+#
+# Numbered 70 so the uaccess tag is set before 73-seat-late.rules applies the
+# seat ACLs, and ID_MM_DEVICE_IGNORE before ModemManager's 77-mm-* rules.
+
+# USB serial ports (CAT, PTT, CW keying, TNCs, QMX/QDX, Digirig, Arduino
+# interfaces): the logged-in desktop user may open them without joining
+# dialout first, and ModemManager must never probe them — its AT probes can
+# key a transmitter or wedge the radio's CAT interface.
+SUBSYSTEM=="tty", KERNEL=="ttyUSB[0-9]*|ttyACM[0-9]*", TAG+="uaccess", ENV{ID_MM_DEVICE_IGNORE}="1"
+
+# C-Media CM108/CM119 audio interfaces expose their GPIO PTT line through
+# hidraw (Dire Wolf, AllStarLink, Digirig Mobile and many DIY interfaces).
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0d8c", TAG+="uaccess"

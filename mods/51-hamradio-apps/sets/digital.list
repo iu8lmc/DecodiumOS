@@ -1,0 +1,10 @@
+# Digital modes
+wsjtx               # FT8, FT4, JT65, Q65, MSK144, WSPR
+wsjtx-doc           # WSJT-X user guide (offline)
+jtdx                # FT8/JT65 decoder tuned for HF DX
+js8call             # keyboard-to-keyboard messaging over FT8 modulation
+fldigi              # PSK, RTTY, Olivia, MFSK, Hellschreiber, CW...
+flmsg               # NBEMS forms (ICS-213, Radiogram)
+flamp               # NBEMS file multicast
+qsstv               # SSTV and digital SSTV
+freedv              # FreeDV digital voice

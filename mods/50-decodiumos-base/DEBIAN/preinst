@@ -1,0 +1,12 @@
+#!/bin/sh
+set -e
+
+# Take over the distribution identity files shipped by (AnduinOS) base-files.
+# The originals are kept as *.anduinos and keep receiving base-files upgrades
+# there, so removing decodiumos-base restores them untouched.
+if [ "$1" = install ] || [ "$1" = upgrade ]; then
+    for file in /usr/lib/os-release /etc/lsb-release /etc/issue /etc/issue.net; do
+        dpkg-divert --package decodiumos-base --add --rename \
+            --divert "$file.anduinos" "$file"
+    done
+fi

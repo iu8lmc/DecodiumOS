@@ -1,0 +1,4 @@
+# CAT / rig control
+libhamlib-utils     # rigctl, rigctld, rotctl, rotctld
+flrig               # rig control front end for Fldigi and friends
+wfview              # Icom (and Kenwood) USB/LAN remote control with waterfall

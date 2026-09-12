@@ -1,0 +1,6 @@
+# Logging, LoTW, contest, DX cluster
+trustedqsl          # ARRL Logbook of The World signing
+klog                # general purpose logbook (ADIF, LoTW, eQSL, Club Log)
+xlog                # lightweight GTK logbook
+tlf                 # console contest logger
+xdx                 # DX cluster client

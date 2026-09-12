@@ -1,0 +1,13 @@
+<!DOCTYPE Menu PUBLIC "-//freedesktop//DTD Menu 1.0//EN"
+ "http://www.freedesktop.org/standards/menu-spec/1.0/menu.dtd">
+<!-- DecodiumOS: top-level "Ham Radio" category for XDG menus (ArcMenu). -->
+<Menu>
+  <Name>Applications</Name>
+  <Menu>
+    <Name>HamRadio</Name>
+    <Directory>X-DecodiumOS-HamRadio.directory</Directory>
+    <Include>
+      <Category>HamRadio</Category>
+    </Include>
+  </Menu>
+</Menu>

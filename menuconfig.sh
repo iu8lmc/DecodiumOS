@@ -142,21 +142,61 @@ edit_build() {
     done
 }
 
+edit_ham() {
+    local sets_dir
+    sets_dir="$(dirname "$ARGS_FILE")/mods/51-hamradio-apps/sets"
+    while true; do
+        result=""
+        menubox "Ham Radio" "Select to edit:" \
+            "sets"     "Application sets      [$(get HAM_PACKAGE_SETS)]" \
+            "decodium" "Decodium release     [$(get DECODIUM_VERSION)]" \
+            "repo"     "Decodium GitHub repo  [$(get DECODIUM_REPO)]" \
+            "back"     "< Back"
+        case "$result" in
+            sets)
+                local current items=() list name description choice rc=0
+                current=" $(get HAM_PACKAGE_SETS) "
+                for list in "$sets_dir"/*.list; do
+                    name=$(basename "$list" .list)
+                    description=$(sed -n '1s/^#[[:space:]]*//p' "$list")
+                    if [[ "$current" == *" $name "* ]]; then
+                        items+=("$name" "$description" ON)
+                    else
+                        items+=("$name" "$description" OFF)
+                    fi
+                done
+                choice=$($DIALOG --title "Ham Radio Application Sets" --separate-output \
+                    --checklist "Space toggles a set:" 0 0 0 "${items[@]}" 3>&1 1>&2 2>&3) || rc=$?
+                [ "$rc" -eq 0 ] || continue
+                set_val HAM_PACKAGE_SETS "$(printf '%s\n' "$choice" | xargs)" ;;
+            decodium)
+                inputbox "Decodium Release" "'latest', a release tag (e.g. v1.0.627), or empty to skip:" "$(get DECODIUM_VERSION)" || continue
+                set_val DECODIUM_VERSION "$result" ;;
+            repo)
+                inputbox "Decodium Repository" "GitHub OWNER/NAME publishing the AppImages:" "$(get DECODIUM_REPO)" || continue
+                set_val DECODIUM_REPO "$result" ;;
+            back|"") return ;;
+        esac
+    done
+}
+
 # ---------------------------------------------------------------------------
 # Main loop
 # ---------------------------------------------------------------------------
 while true; do
     result=""
-    menubox "AnduinOS Build Configuration" "make menuconfig — edit args.sh" \
+    menubox "DecodiumOS Build Configuration" "make menuconfig — edit args.sh" \
         "os"        "OS Information" \
         "repos"     "Repositories" \
         "build"     "Build Options" \
+        "ham"       "Ham Radio" \
         "save"      "Save & Exit" \
         "exit"      "Exit without saving"
     case "$result" in
         os)     edit_os ;;
         repos)  edit_repos ;;
         build)  edit_build ;;
+        ham)    edit_ham ;;
         save)
             SAVE_CHANGES=true
             msg "Saved" "Configuration saved to args.sh.\nRun 'make' to build."

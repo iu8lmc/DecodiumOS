@@ -1,0 +1,6 @@
+# Packet, APRS, Winlink
+direwolf            # soundcard AX.25 TNC, APRS digipeater and iGate
+ax25-tools          # kernel AX.25 configuration tools
+ax25-apps           # AX.25 terminal and monitor
+pat                 # Winlink client (VARA/ARDOP/AX.25/telnet)
+xastir              # APRS map client

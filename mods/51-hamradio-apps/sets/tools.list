@@ -1,0 +1,8 @@
+# Station utilities
+gpsd                # GPS daemon (portable operation, grid square, time)
+gpsd-clients        # cgps, xgps
+gpsd-tools          # gpsmon, gpsctl, ubxtool
+cutecom             # graphical serial terminal
+minicom             # console serial terminal
+pavucontrol         # per-application audio device and level control
+qpwgraph            # PipeWire patchbay to route radio audio

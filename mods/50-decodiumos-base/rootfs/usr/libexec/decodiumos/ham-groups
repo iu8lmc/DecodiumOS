@@ -1,0 +1,28 @@
+#!/bin/sh
+# Add every local human account to the groups a radio station needs.
+#
+# The graphical session already reaches serial ports through the udev
+# uaccess tag; group membership additionally covers SSH sessions, rigctld or
+# Dire Wolf started as user services, and cron jobs. The installer creates
+# the first user without dialout, so this runs at every boot, before the
+# display manager, and only touches accounts that still miss a group.
+set -eu
+
+HAM_GROUPS="dialout plugdev"
+
+while IFS=: read -r name _ uid _ _ _ shell; do
+    case "$uid" in
+        '' | *[!0-9]*) continue ;;
+    esac
+    [ "$uid" -ge 1000 ] && [ "$uid" -lt 60000 ] || continue
+    case "$shell" in
+        '' | */nologin | */false) continue ;;
+    esac
+    for group in $HAM_GROUPS; do
+        getent group "$group" >/dev/null || continue
+        if ! id -nG "$name" | tr ' ' '\n' | grep -qx "$group"; then
+            usermod -aG "$group" "$name"
+            echo "Added $name to $group"
+        fi
+    done
+done < /etc/passwd

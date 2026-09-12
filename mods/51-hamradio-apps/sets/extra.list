@@ -1,0 +1,9 @@
+# Heavy or niche software — not in the default HAM_PACKAGE_SETS
+cqrlog              # full logbook (brings its own MariaDB server)
+gnuradio            # GNU Radio Companion (large)
+gr-satellites       # GNU Radio satellite telemetry decoders
+satdump             # weather and satellite image decoding
+quisk               # SDR transceiver software
+fbb                 # F6FBB packet BBS
+linpac              # packet radio terminal
+soundmodem          # soundcard packet modem

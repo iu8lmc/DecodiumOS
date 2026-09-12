@@ -112,14 +112,14 @@ export APT_SOURCE="http://archive.ubuntu.com/ubuntu/"
 
 # This is the name of the target OS.
 # Must be lowercase without special characters and spaces
-export TARGET_NAME="anduinos"
+export TARGET_NAME="decodiumos"
 
 # This is the full display name of the target OS.
 # Business name. No special characters or spaces
-export TARGET_BUSINESS_NAME="AnduinOS"
+export TARGET_BUSINESS_NAME="DecodiumOS"
 
 # Version number. Must be in the format of x.y.z
-export TARGET_BUILD_VERSION="2.0.2"
+export TARGET_BUILD_VERSION="1.0.0"
 
 # Target CPU architecture.
 #   amd64 — Intel / AMD 64-bit
@@ -140,3 +140,35 @@ export APKG_SERVER="https://packages.anduinos.com"
 # GPG certificate name on the APKG server (used to download and verify the repo).
 # The cert is fetched from: $APKG_SERVER/artifacts/certs/$APKG_CERT_NAME
 export APKG_CERT_NAME="anduinos"
+
+#============================
+# DecodiumOS — amateur radio layer
+#============================
+
+# Upstream base this build derives from (shown in os-release and the ISO README).
+export UPSTREAM_BASE_NAME="AnduinOS 2"
+
+# Project home page written to os-release (HOME_URL).
+export TARGET_HOME_URL="https://www.ft2.it/"
+
+# Ham radio application sets installed by mods/51-hamradio-apps.
+# Each word is a file mods/51-hamradio-apps/sets/<word>.list.
+#   rig        CAT / rig control (Hamlib, flrig, wfview)
+#   digital    Digital modes (WSJT-X, JTDX, JS8Call, Fldigi, QSSTV, FreeDV)
+#   logging    Logging, LoTW, contest, DX cluster
+#   packet     Packet, APRS, Winlink (Dire Wolf, AX.25, Pat, Xastir)
+#   satellite  Satellite tracking (Gpredict)
+#   sdr        SDR receivers and tools (Gqrx, rtl-sdr, SoapySDR, HackRF, Airspy)
+#   cw         Morse training
+#   antenna    Antenna modelling and RF propagation
+#   tools      GPS, serial terminals, audio routing
+#   extra      Heavy or niche software (CQRLOG, GNU Radio, SatDump, Quisk...)
+export HAM_PACKAGE_SETS="rig digital logging packet satellite sdr cw antenna tools"
+
+# Decodium is fetched from the GitHub releases of DECODIUM_REPO, verified
+# against the published SHA-256, and installed as the "decodium" package.
+#   latest  — newest release at build time
+#   v1.0.627 (any tag) — pin an exact release
+#   empty   — do not ship Decodium
+export DECODIUM_REPO="iu8lmc/Decodium-4.0-Core-Shannon"
+export DECODIUM_VERSION="latest"

@@ -1,71 +1,120 @@
-# AnduinOS 2
+# DecodiumOS
 
-[![GPL licensed](https://img.shields.io/badge/license-GPL-blue.svg)](https://github.com/AiursoftWeb/AnduinOS-2/blob/master/LICENSE)
-[![Discussions](https://img.shields.io/badge/discussions-join-blue)](https://github.com/Anduin2017/AnduinOS/discussions)
-[![Join the AnduinOS Community on Revolt](https://img.shields.io/badge/Revolt-Join-fd6671?style=flat-square)](https://rvlt.gg/dPwPs8e6)
-[![Website](https://img.shields.io/website?url=https%3A%2F%2Fwww.anduinos.com%2F)](https://www.anduinos.com/)
-[![Man hours](https://manhours.aiursoft.com/r/github.com/aiursoftweb/anduinos-2.svg)](https://manhours.aiursoft.com/r/github.com/aiursoftweb/anduinos-2.html)
+Sistema operativo Linux per radioamatori, derivato da
+[AnduinOS 2](https://github.com/AiursoftWeb/AnduinOS-2) (Ubuntu 26.04
+"resolute", desktop GNOME in stile Windows). Si avvia da USB in modalità Live,
+si installa con l'installer nativo di AnduinOS e al primo avvio ha già
+Decodium, i modi digitali, il controllo CAT e gli strumenti SDR pronti.
 
-<img align="right" width="100" height="100" src="./logo.svg">
+## Cosa contiene
 
-AnduinOS is a custom Ubuntu-based Linux distribution that offers a familiar and easy-to-use experience for anyone moving to Linux.
+| Set (`HAM_PACKAGE_SETS`) | Applicazioni |
+|---|---|
+| — | **Decodium 4** (ultima release GitHub, verificata SHA-256) |
+| `rig` | Hamlib (`rigctl`/`rigctld`), flrig, wfview |
+| `digital` | WSJT-X, JTDX, JS8Call, Fldigi, flmsg, flamp, QSSTV, FreeDV |
+| `logging` | TQSL (LoTW), KLog, Xlog, Tlf, Xdx |
+| `packet` | Dire Wolf, AX.25 tools/apps, Pat (Winlink), Xastir |
+| `satellite` | Gpredict |
+| `sdr` | Gqrx, rtl-sdr, SoapySDR, HackRF, Airspy, CubicSDR, Inspectrum, multimon-ng |
+| `cw` | Aldo, qrq, morse, ebook2cw |
+| `antenna` | xnec2c, nec2c, yagiuda, SPLAT! |
+| `tools` | gpsd, CuteCom, minicom, pavucontrol, qpwgraph |
+| `extra` (non predefinito) | CQRLOG, GNU Radio, gr-satellites, SatDump, Quisk, FBB, LinPac, soundmodem |
 
-If you are looking for the source code of AnduinOS 1, please check the [AnduinOS 1 repository](https://github.com/anduin2017/anduinos).
+Integrazione di sistema (pacchetto `decodiumos-base`):
 
-[Download AnduinOS](https://www.anduinos.com/)
+- porte seriali CAT/PTT (`ttyUSB*`, `ttyACM*`) accessibili subito
+  all'utente del desktop (tag udev `uaccess`) e gruppo `dialout` aggiunto
+  automaticamente a ogni utente locale a ogni avvio;
+- ModemManager non sonda più le interfacce radio (le sonde AT possono mandare
+  in trasmissione la radio o bloccare la CAT);
+- PTT via GPIO dei chip C-Media CM108/CM119 (Digirig, Dire Wolf) accessibile;
+- sincronizzazione NTP più frequente (poll massimo 256 s) per FT8/FT4/FT2;
+- cartella "Radioamatore" nel menu e Decodium fissato sulla barra;
+- identità `ID=decodiumos`, `ID_LIKE="ubuntu debian"`, `UBUNTU_CODENAME`
+  conservato (PPA e script di terze parti continuano a funzionare).
 
-![Screenshot](./screenshot.png)
-
-AnduinOS is funded by user donations. We are grateful for your support.
-
-<a href="https://ko-fi.com/anduinxue/goal?g=0" target="_blank" title="Support AnduinOS on Ko-fi">
-  <img height="36" style="border:0px;height:36px;" src="https://storage.ko-fi.com/cdn/kofi3.png?v=3" border="0" alt="Support AnduinOS at ko-fi.com" />
-</a>
-
-## How to build
-
-It is suggested to use AnduinOS to build AnduinOS.
-
-To build the OS, run the following command:
+Aggiornare Decodium su un sistema installato:
 
 ```bash
+decodiumos-update-decodium --check          # confronta installato/disponibile
+sudo decodiumos-update-decodium             # installa l'ultima release
+sudo decodiumos-update-decodium --version v1.0.627
+```
+
+## Compilare la ISO
+
+L'host di build deve essere **Ubuntu 26.04** (il codename deve coincidere con
+`TARGET_UBUNTU_VERSION` in `args.sh`), con un utente non root che usa `sudo`,
+connessione Internet e molto spazio libero su disco.
+
+```bash
+git clone <questo repository> decodiumos
+cd decodiumos
+make menuconfig     # opzionale: set di applicazioni, release di Decodium...
 make
 ```
 
-To edit the build parameters, modify the `./args.sh` file.
+La ISO e il suo SHA-256 finiscono in `dist/`
+(`DecodiumOS-<versione>-<data>-amd64.iso`). Per ARM64:
+`TARGET_ARCH=arm64 make`.
 
-That's it. The built file will be an ISO file in the `./dist` directory.
+Da Windows si può compilare in WSL2 (`wsl --install -d Ubuntu-26.04`), ma il
+repository va clonato nel filesystem Linux (`~/decodiumos`), **non** in
+`/mnt/c`: debootstrap e chroot non funzionano su NTFS.
 
-Simply mount the built ISO file in a virtual machine, and you can start testing it.
+## Come è fatto
 
-The ISO uses `anduinos-installer-beta`, AnduinOS's native declarative
-installer. Casper remains responsible for the live environment. The legacy
-Ubiquity integration stack is retired and is not included, built, or
-maintained by AnduinOS.
+La build parte da un Ubuntu minimale, applica in ordine gli script in `mods/`
+dentro un chroot e crea la SquashFS Live e la ISO:
 
-## Document
+| Mod | Origine | Scopo |
+|---|---|---|
+| `00`–`05` | AnduinOS | base di sistema, desktop, installer |
+| `46-casper-patch` | AnduinOS | sessione Live (Casper) |
+| `50-decodiumos-base` | DecodiumOS | pacchetto `decodiumos-base` (file in `rootfs/`) |
+| `51-hamradio-apps` | DecodiumOS | set di applicazioni da `sets/*.list` |
+| `52-decodium` | DecodiumOS | Decodium dall'AppImage ufficiale, come pacchetto `decodium` |
+| `80`–`85` | AnduinOS | initramfs Live, locale, rete, pulizia |
 
-[Read the document](https://docs.anduinos.com/)
+Aggiungere un programma: una riga in `mods/51-hamradio-apps/sets/<set>.list`.
+I pacchetti che non esistono per la release/architettura, o che si
+porterebbero dietro compilatori, `xterm` o snapd, vengono saltati con un
+avviso invece di rompere la build.
 
-## License
+## Seguire AnduinOS upstream
 
-This project is licensed under the GNU GENERAL PUBLIC LICENSE - see the [LICENSE](LICENSE) file for details
+DecodiumOS segue le **release** di AnduinOS 2, non il ramo `master`: le
+release usano solo pacchetti del repository pubblico `packages.anduinos.com`,
+mentre `master` può dipendere da pacchetti presenti solo nel repository di
+sviluppo. La base attuale è il tag `2.0.2`.
 
-The open-source software included in AnduinOS is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY.
+Il remote `upstream` punta ad AnduinOS 2. Le modifiche DecodiumOS vivono in
+mod separati, quindi i conflitti restano confinati a `args.sh`, `build.sh`,
+`menuconfig.sh` e questo README. Per passare a una nuova release:
 
-[List of open-source software included in AnduinOS](OSS.md)
+```bash
+git fetch upstream --tags
+git merge <nuovo-tag>        # es. 2.1.0
+```
 
-## Support
+## Limiti noti
 
-For community support and discussion, please join our [AnduinOS Discussions](https://github.com/Anduin2017/AnduinOS/discussions).
+- Plymouth, sfondi, tema e testi dell'installer sono ancora quelli di
+  AnduinOS (anche il nome host predefinito proposto dall'installer).
+- La suite di accettazione QEMU (`make test`) verifica ancora il marchio
+  AnduinOS (testo della tty, logo) e va adattata; i test unitari girano solo
+  su Linux.
+- ModemManager ignora tutte le porte `ttyUSB`/`ttyACM`: i vecchi modem
+  cellulari seriali non vengono gestiti.
+- Un utente creato dopo l'installazione entra in `dialout` al riavvio
+  successivo; l'accesso dal desktop funziona subito grazie a `uaccess`.
 
-For bug reports and feature requests, please use the [Issues](https://github.com/Anduin2017/AnduinOS/issues) page.
+## Licenza e crediti
 
-<!-- Planned future work:
-
-* WSL support.
-* Docker container support.
-* Layer based OS. Including: WSL\Server\Pro\Lite\Home\Workstation
-* LiberOS.
-* Customized apt source with our own override.
-* Customized kernel with our own override. -->
+GPL-3.0, come AnduinOS (vedi [LICENSE](LICENSE) e [OSS.md](OSS.md)).
+Basato sul lavoro del team AnduinOS / Aiursoft. Decodium è di IU8LMC e
+contributori ([Decodium 4](https://github.com/iu8lmc/Decodium-4.0-Core-Shannon)).
+Le applicazioni radioamatoriali provengono dagli archivi Ubuntu e Debian
+Hamradio, ciascuna con la propria licenza.

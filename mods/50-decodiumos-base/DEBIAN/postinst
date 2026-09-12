@@ -1,0 +1,44 @@
+#!/bin/sh
+set -e
+
+UNIT=decodiumos-ham-groups.service
+
+# The image build bind-mounts the host /run into its chroot, so
+# /run/systemd/system alone does not prove we manage a running system.
+running_system() {
+    [ -d /run/systemd/system ] || return 1
+    if command -v systemd-detect-virt >/dev/null 2>&1 &&
+       systemd-detect-virt --quiet --chroot >/dev/null 2>&1; then
+        return 1
+    fi
+    if command -v ischroot >/dev/null 2>&1 && ischroot >/dev/null 2>&1; then
+        return 1
+    fi
+    return 0
+}
+
+if [ "$1" = configure ] || [ "$1" = abort-upgrade ] || \
+   [ "$1" = abort-deconfigure ] || [ "$1" = abort-remove ]; then
+    # Same enablement sequence debhelper generates; works offline in a chroot.
+    deb-systemd-helper unmask "$UNIT" >/dev/null || true
+    if deb-systemd-helper --quiet was-enabled "$UNIT"; then
+        deb-systemd-helper enable "$UNIT" >/dev/null || true
+    else
+        deb-systemd-helper update-state "$UNIT" >/dev/null || true
+    fi
+fi
+
+if [ "$1" = configure ]; then
+    # Existing accounts get dialout now instead of at the next boot.
+    /usr/libexec/decodiumos/ham-groups || true
+
+    # Apply the new udev rules and NTP policy right away, but never reach
+    # into the build host's udev or systemd from the image chroot.
+    if running_system; then
+        systemctl --system daemon-reload >/dev/null || true
+        systemctl try-restart systemd-timesyncd.service >/dev/null 2>&1 || true
+        udevadm control --reload-rules >/dev/null 2>&1 || true
+        udevadm trigger --subsystem-match=tty --subsystem-match=hidraw \
+            >/dev/null 2>&1 || true
+    fi
+fi

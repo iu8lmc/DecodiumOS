@@ -1,0 +1,21 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    remove|abort-install|disappear)
+        # Our copies are already gone; give the paths back to base-files.
+        for file in /usr/lib/os-release /etc/lsb-release /etc/issue /etc/issue.net; do
+            dpkg-divert --package decodiumos-base --remove --rename \
+                --divert "$file.anduinos" "$file"
+        done
+        ;;
+esac
+
+if [ "$1" = purge ]; then
+    deb-systemd-helper purge decodiumos-ham-groups.service >/dev/null || true
+fi
+
+# systemctl ignores daemon-reload inside a chroot, so no host guard is needed.
+if [ -d /run/systemd/system ]; then
+    systemctl --system daemon-reload >/dev/null || true
+fi

@@ -1,0 +1,5 @@
+# Antenna modelling and RF propagation
+xnec2c              # NEC2 antenna modelling with GUI
+nec2c               # NEC2 command-line engine
+yagiuda             # Yagi-Uda design and optimisation
+splat               # RF coverage and path analysis
