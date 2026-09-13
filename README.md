@@ -78,6 +78,24 @@ aggiornamento, così i pacchetti AnduinOS continuano ad aggiornarsi senza
 riportare il vecchio marchio. `sudo /usr/libexec/decodiumos/rebrand --undo`
 ripristina tutto.
 
+**Decodium RX** (pacchetto `decodium-rx`): ricevitore FT8, FT4 e FT2 da
+terminale, in sola ricezione, con il decoder di Decodium 4. Prende l'audio
+dalla scheda della radio, lo divide in slot allineati all'UTC e li decodifica
+con `decodium-rx-core`, i worker di decodifica di Decodium compilati come
+programma a riga di comando dai sorgenti della stessa release di Decodium
+installata. Non trasmette mai e non tocca CAT né PTT.
+
+```bash
+decodium-rx                              # chiede modo, frequenza, nominativo e ingresso
+decodium-rx -m ft8 -f 14.074 -c IU8LMC   # CQ in verde, il tuo nominativo in rosso
+decodium-rx -m ft2 -s alsa -d plughw:CARD=CODEC,DEV=0
+decodium-rx --list-devices
+rtl_fm -M usb -f 144.174M -s 12k - | decodium-rx -m ft8 -s stdin
+```
+
+Le decodifiche finiscono anche in `~/.local/share/decodium-rx/ALL.TXT`
+(formato WSJT-X). Nel menu c'è "Decodium RX (terminale)".
+
 Aggiornare Decodium su un sistema installato:
 
 ```bash
@@ -120,6 +138,7 @@ dentro un chroot e crea la SquashFS Live e la ISO:
 | `51-hamradio-apps` | DecodiumOS | set di applicazioni da `sets/*.list` |
 | `52-decodium` | DecodiumOS | Decodium dall'AppImage ufficiale, come pacchetto `decodium` |
 | `53-decodiumos-branding` | DecodiumOS | pacchetto `decodiumos-branding`: grafica e rebrand |
+| `54-decodium-rx` | DecodiumOS | compila il core di Decodium 4 dai sorgenti, lo prova su segnali FT8/FT4/FT2 simulati e crea `decodium-rx`; poi elimina compilatori e pacchetti `-dev` |
 | `80`–`85` | AnduinOS | initramfs Live, locale, rete, pulizia |
 
 Aggiungere un programma: una riga in `mods/51-hamradio-apps/sets/<set>.list`.
@@ -161,6 +180,9 @@ git merge <nuovo-tag>        # es. 2.1.0
 - La suite di accettazione QEMU (`make test`) verifica ancora il marchio
   AnduinOS (testo della tty, logo) e va adattata; i test unitari girano solo
   su Linux.
+- `decodium-rx-core` resta alla release di Decodium con cui è stata costruita
+  la ISO: `decodiumos-update-decodium` aggiorna l'applicazione Decodium, non
+  il core di Decodium RX.
 - ModemManager ignora tutte le porte `ttyUSB`/`ttyACM`: i vecchi modem
   cellulari seriali non vengono gestiti.
 - Un utente creato dopo l'installazione entra in `dialout` al riavvio

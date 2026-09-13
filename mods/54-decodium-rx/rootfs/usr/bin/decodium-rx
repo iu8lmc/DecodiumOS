@@ -1,0 +1,498 @@
+#!/usr/bin/python3
+"""decodium-rx: Decodium 4 digital-mode receiver for the terminal (RX only).
+
+Captures audio from the radio's sound card, cuts it into UTC-aligned slots
+and decodes every slot with decodium-rx-core, the command-line build of the
+Decodium 4 decode workers (FT8, FT4 and FT2). Nothing is ever transmitted.
+
+  decodium-rx                         ask mode, dial frequency and audio input
+  decodium-rx -m ft8 -f 14.074 -c IU8LMC
+  decodium-rx -m ft2 -s alsa -d plughw:CARD=CODEC,DEV=0
+  decodium-rx --list-devices
+  rtl_fm -M usb -f 144.174M -s 12k - | decodium-rx -m ft8 -s stdin
+  decodium-rx -m ft8 --wav 250913_120000.wav     decode recordings and exit
+"""
+
+import argparse
+import array
+import collections
+import datetime
+import json
+import math
+import os
+import queue
+import re
+import shutil
+import signal
+import subprocess
+import sys
+import tempfile
+import threading
+import time
+import wave
+
+CORE = os.environ.get("DECODIUM_RX_CORE", "/usr/lib/decodium-rx/decodium-rx-core")
+RATE = 12000
+MODES = {
+    # period s, samples the decoder reads from the start of the slot
+    "ft8": {"period": 15.0, "samples": 50 * 3456, "flag": "--ft8"},
+    "ft4": {"period": 7.5, "samples": 21 * 3456, "flag": "--ft4"},
+    "ft2": {"period": 3.75, "samples": 45000, "flag": "--ft2"},
+}
+# The core leaves the UTC column empty for slot 00:00:00.
+ROW = re.compile(r"^\s*(?:(\d{4,6})\s+)?(-?\d+)\s+(-?\d+\.\d+)\s+(\d+)\s+\S\s+(.*?)\s*$")
+CONFIG = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")),
+                      "decodium-rx.json")
+DATA = os.path.join(os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share")),
+                    "decodium-rx")
+
+
+class Style:
+    def __init__(self, enabled):
+        self.enabled = enabled
+
+    def __call__(self, text, code):
+        return f"\033[{code}m{text}\033[0m" if self.enabled else text
+
+
+# ── audio capture ────────────────────────────────────────────────────────
+
+def capture_command(source, device):
+    """argv that writes raw 12 kHz mono s16le audio to stdout, or None for stdin."""
+    if source == "stdin":
+        return None
+    if source == "auto":
+        source = "pulse" if shutil.which("parec") else "alsa"
+    if source == "pulse":
+        cmd = ["parec", "--rate", str(RATE), "--channels", "1", "--format", "s16le", "--raw",
+               "--latency-msec", "50"]
+        if device:
+            cmd += ["--device", device]
+        return cmd
+    return ["arecord", "-q", "-D", device or "default", "-f", "S16_LE", "-c", "1",
+            "-r", str(RATE), "-t", "raw"]
+
+
+class Capture(threading.Thread):
+    """Reads the audio stream and maps sample indices to wall-clock time.
+
+    Each read gives an estimate of when stream sample 0 was taken:
+    arrival time minus the stream duration so far. Pipe and scheduling
+    latency only ever make the estimate late, so the minimum over the last
+    ~20 s is used; the window follows sound-card clock drift.
+    """
+
+    KEEP = 90 * RATE
+
+    def __init__(self, argv):
+        super().__init__(daemon=True)
+        self.argv = argv
+        self.proc = None
+        self.lock = threading.Lock()
+        self.buf = array.array("h")
+        self.offset = 0                  # stream index of buf[0]
+        self.total = 0
+        self.estimates = collections.deque(maxlen=200)
+        self.t0 = None
+        self.level = -120.0
+        self.error = None
+        self.eof = False
+
+    def run(self):
+        try:
+            if self.argv:
+                self.proc = subprocess.Popen(self.argv, stdout=subprocess.PIPE,
+                                             stderr=subprocess.PIPE)
+                stream = self.proc.stdout.fileno()
+            else:
+                stream = sys.stdin.fileno()
+            pending = b""
+            while True:
+                chunk = os.read(stream, 2400)
+                if not chunk:
+                    break
+                now = time.time()
+                chunk = pending + chunk
+                usable = len(chunk) - len(chunk) % 2
+                pending = chunk[usable:]
+                samples = array.array("h")
+                samples.frombytes(chunk[:usable])
+                if sys.byteorder != "little":
+                    samples.byteswap()
+                with self.lock:
+                    self.buf.extend(samples)
+                    self.total += len(samples)
+                    self.estimates.append(now - self.total / RATE)
+                    self.t0 = min(self.estimates)
+                    if len(self.buf) > self.KEEP + 10 * RATE:
+                        drop = len(self.buf) - self.KEEP
+                        del self.buf[:drop]
+                        self.offset += drop
+                if samples:
+                    power = sum(s * s for s in samples[::8]) / max(1, len(samples[::8]))
+                    self.level = 10 * math.log10(power / 32768.0 ** 2) if power > 0 else -120.0
+        except Exception as exc:          # reported by the main loop
+            self.error = str(exc)
+        finally:
+            self.eof = True
+            if self.proc and self.proc.poll() is not None and self.proc.returncode:
+                err = self.proc.stderr.read().decode("utf-8", "replace").strip()
+                self.error = err.splitlines()[-1] if err else f"capture exited with {self.proc.returncode}"
+
+    def slot(self, start_time, count):
+        """Samples of the slot starting at start_time, None if not (yet) available."""
+        with self.lock:
+            if self.t0 is None:
+                return None
+            i0 = int(round((start_time - self.t0) * RATE))
+            if i0 < self.offset or i0 + count > self.offset + len(self.buf):
+                return None
+            a = i0 - self.offset
+            return self.buf[a:a + count]
+
+    def stop(self):
+        if self.proc and self.proc.poll() is None:
+            self.proc.terminate()
+
+
+# ── decoding ─────────────────────────────────────────────────────────────
+
+def write_wav(path, samples):
+    with wave.open(path, "wb") as out:
+        out.setnchannels(1)
+        out.setsampwidth(2)
+        out.setframerate(RATE)
+        data = array.array("h", samples)
+        if sys.byteorder != "little":
+            data.byteswap()
+        out.writeframes(data.tobytes())
+
+
+def run_core(args, wav_path, workdir):
+    cmd = [CORE, MODES[args.mode]["flag"], "-d", str(args.depth), "-L", str(args.low),
+           "-H", str(args.high), "-f", str(args.rx_freq), "-t", workdir, "-a", workdir]
+    if args.call:
+        cmd += ["-c", args.call.upper()]
+    try:
+        out = subprocess.run(cmd + [wav_path], capture_output=True, text=True, timeout=60,
+                             errors="replace")
+    except subprocess.TimeoutExpired:
+        return [], "decoder timeout"
+    rows = []
+    for line in out.stdout.splitlines():
+        m = ROW.match(line)
+        if m:
+            rows.append({"snr": int(m.group(2)), "dt": float(m.group(3)),
+                         "df": int(m.group(4)), "msg": m.group(5)})
+    error = None
+    if out.returncode != 0:
+        error = (out.stderr.strip().splitlines() or [f"decoder exited with {out.returncode}"])[-1]
+    return rows, error
+
+
+class Decoder(threading.Thread):
+    def __init__(self, args, workdir, results):
+        super().__init__(daemon=True)
+        self.args = args
+        self.workdir = workdir
+        self.results = results
+        self.jobs = queue.Queue()
+        self.busy = False
+
+    def submit(self, slot_time, samples):
+        dropped = 0
+        while self.jobs.qsize() >= 2:          # never fall further behind
+            try:
+                self.jobs.get_nowait()
+                dropped += 1
+            except queue.Empty:
+                break
+        self.jobs.put((slot_time, samples))
+        return dropped
+
+    def run(self):
+        while True:
+            slot_time, samples = self.jobs.get()
+            self.busy = True
+            stamp = datetime.datetime.fromtimestamp(slot_time, datetime.timezone.utc)
+            name = stamp.strftime("%y%m%d_%H%M%S") + ".wav"
+            path = os.path.join(self.workdir, name)
+            write_wav(path, samples)
+            started = time.time()
+            rows, error = run_core(self.args, path, self.workdir)
+            if self.args.save_slots:
+                os.makedirs(self.args.save_slots, exist_ok=True)
+                shutil.copy2(path, os.path.join(self.args.save_slots, name))
+            os.unlink(path)
+            self.results.put((slot_time, rows, error, time.time() - started))
+            self.busy = False
+
+
+# ── presentation ─────────────────────────────────────────────────────────
+
+class Screen:
+    def __init__(self, args, style):
+        self.args = args
+        self.style = style
+        self.status_shown = False
+        self.log = None
+        if args.log:
+            os.makedirs(os.path.dirname(args.log), exist_ok=True)
+            self.log = open(args.log, "a", encoding="utf-8")
+        self.filter = re.compile(args.grep, re.IGNORECASE) if args.grep else None
+        self.call = args.call.upper() if args.call else None
+
+    def _clear_status(self):
+        if self.status_shown:
+            sys.stdout.write("\r\033[K")
+            self.status_shown = False
+
+    def status(self, text):
+        if not sys.stdout.isatty():
+            return
+        width = shutil.get_terminal_size((100, 20)).columns
+        sys.stdout.write("\r\033[K" + self.style(text[:max(10, width - 1)], "2;36"))
+        sys.stdout.flush()
+        self.status_shown = True
+
+    def message(self, text):
+        self._clear_status()
+        print(text, flush=True)
+
+    def header(self, source_label):
+        mode = self.args.mode.upper()
+        dial = f"{self.args.dial:.3f} MHz" if self.args.dial else "dial not set"
+        self.message(self.style(f"Decodium RX · {mode} · {dial} · {source_label}", "1;96"))
+        self.message(self.style("  UTC        dB   DT   Freq   Message", "2"))
+
+    def decodes(self, slot_time, rows):
+        mode = self.args.mode.upper()
+        stamp = datetime.datetime.fromtimestamp(slot_time, datetime.timezone.utc)
+        clock = stamp.strftime("%H:%M:%S")
+        if self.args.mode == "ft2":
+            clock += f".{int(round((slot_time % 1) * 100)):02d}"
+        else:
+            clock += "   "
+        for row in rows:
+            msg = row["msg"]
+            if self.log:
+                dial = self.args.dial or 0.0
+                self.log.write(f"{stamp:%y%m%d_%H%M%S} {dial:10.3f} Rx {mode:<4} "
+                               f"{row['snr']:6d} {row['dt']:4.1f} {row['df']:4d} {msg}\n")
+            if self.args.cq_only and not msg.startswith("CQ "):
+                continue
+            if self.filter and not self.filter.search(msg):
+                continue
+            freq = f"{row['df']:5d}"
+            if self.args.dial:
+                freq = f"{self.args.dial + row['df'] / 1e6:10.6f}"
+            line = f"  {clock} {row['snr']:4d} {row['dt']:4.1f} {freq}  {msg}"
+            words = msg.split()
+            if self.call and self.call in words:
+                line = self.style(line, "1;91")
+            elif msg.startswith("CQ "):
+                line = self.style(line, "92")
+            self.message(line)
+        if self.log:
+            self.log.flush()
+
+
+# ── configuration ────────────────────────────────────────────────────────
+
+def list_devices():
+    if shutil.which("pactl"):
+        print("PipeWire/PulseAudio sources (use with -s pulse -d NAME):")
+        out = subprocess.run(["pactl", "list", "short", "sources"], capture_output=True, text=True)
+        for line in out.stdout.splitlines():
+            parts = line.split("\t")
+            if len(parts) > 1 and not parts[1].endswith(".monitor"):
+                print(f"  {parts[1]}")
+    if shutil.which("arecord"):
+        print("ALSA capture devices (use with -s alsa -d NAME):")
+        out = subprocess.run(["arecord", "-L"], capture_output=True, text=True)
+        for line in out.stdout.splitlines():
+            if line and not line.startswith(" ") and (line.startswith(("plughw:", "hw:", "default", "sysdefault:"))):
+                print(f"  {line}")
+
+
+def load_config():
+    try:
+        with open(CONFIG, encoding="utf-8") as handle:
+            return json.load(handle)
+    except (OSError, ValueError):
+        return {}
+
+
+def ask(prompt, default):
+    try:
+        answer = input(f"{prompt} [{default}]: ").strip()
+    except EOFError:
+        return default
+    return answer or default
+
+
+def interactive(args):
+    """First-run style questions when started without a mode (desktop launcher)."""
+    saved = load_config()
+    print("Decodium RX: digital-mode receiver (RX only). Enter keeps the value in brackets.\n")
+    mode = ask("Mode ft8 / ft4 / ft2", saved.get("mode", "ft8")).lower()
+    while mode not in MODES:
+        mode = ask("Mode ft8 / ft4 / ft2", "ft8").lower()
+    dial = ask("Dial frequency in MHz (0 = none)", str(saved.get("dial", 0)))
+    call = ask("Your callsign, highlighted and used for AP decoding (- = none)",
+               saved.get("call", "-"))
+    print()
+    list_devices()
+    device = ask("\nAudio input (default = system default)", saved.get("device", "default"))
+    args.mode = mode
+    try:
+        args.dial = float(dial.replace(",", ".")) or None
+    except ValueError:
+        args.dial = None
+    args.call = None if call in ("", "-") else call
+    args.device = None if device == "default" else device
+    os.makedirs(os.path.dirname(CONFIG), exist_ok=True)
+    with open(CONFIG, "w", encoding="utf-8") as handle:
+        json.dump({"mode": mode, "dial": args.dial or 0, "call": args.call or "-",
+                   "device": device}, handle)
+    print()
+
+
+def clock_warning():
+    if not shutil.which("timedatectl"):
+        return None
+    out = subprocess.run(["timedatectl", "show", "-p", "NTPSynchronized", "--value"],
+                         capture_output=True, text=True)
+    if out.stdout.strip() == "no":
+        return "system clock is not NTP-synchronised: decodes need the clock within ~0.5 s"
+    return None
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        prog="decodium-rx", formatter_class=argparse.RawDescriptionHelpFormatter,
+        description=__doc__.split("\n\n", 1)[0],
+        epilog=__doc__.split("\n\n", 2)[2])
+    parser.add_argument("-m", "--mode", choices=sorted(MODES), help="digital mode (asked if omitted)")
+    parser.add_argument("-f", "--dial", type=float, help="dial frequency in MHz, shown and logged")
+    parser.add_argument("-c", "--call", help="your callsign: highlighted, used for AP decoding")
+    parser.add_argument("-s", "--source", choices=["auto", "pulse", "alsa", "stdin"], default="auto",
+                        help="audio source (default: PipeWire/PulseAudio if available, else ALSA)")
+    parser.add_argument("-d", "--device", help="source/device name, see --list-devices")
+    parser.add_argument("--list-devices", action="store_true", help="list audio inputs and exit")
+    parser.add_argument("--depth", type=int, choices=[1, 2, 3], default=3, help="decode depth (default 3)")
+    parser.add_argument("--low", type=int, default=200, help="lowest audio frequency, Hz (default 200)")
+    parser.add_argument("--high", type=int, default=4000, help="highest audio frequency, Hz (default 4000)")
+    parser.add_argument("--rx-freq", type=int, default=1500, help="audio frequency of interest, Hz")
+    parser.add_argument("--cq-only", action="store_true", help="show only CQ calls")
+    parser.add_argument("--grep", metavar="REGEX", help="show only messages matching REGEX")
+    parser.add_argument("--log", default=os.path.join(DATA, "ALL.TXT"),
+                        help="decode log in WSJT-X ALL.TXT format (default: %(default)s)")
+    parser.add_argument("--no-log", action="store_true", help="do not write the decode log")
+    parser.add_argument("--save-slots", metavar="DIR", help="keep every slot as a WAV file in DIR")
+    parser.add_argument("--no-color", action="store_true", help="plain output")
+    parser.add_argument("--wav", nargs="+", metavar="FILE",
+                        help="decode 12 kHz 16-bit mono WAV files (names end in _HHMMSS.wav) and exit")
+    args = parser.parse_args()
+    if args.no_log:
+        args.log = None
+    return args
+
+
+def decode_files(args, style):
+    screen = Screen(args, style)
+    with tempfile.TemporaryDirectory(prefix="decodium-rx-") as workdir:
+        for path in args.wav:
+            m = re.search(r"(\d{6})_(\d{6})\.wav$", os.path.basename(path), re.IGNORECASE)
+            slot_time = 0.0
+            if m:
+                stamp = datetime.datetime.strptime(m.group(1) + m.group(2), "%y%m%d%H%M%S")
+                slot_time = stamp.replace(tzinfo=datetime.timezone.utc).timestamp()
+            rows, error = run_core(args, os.path.abspath(path), workdir)
+            if error:
+                screen.message(style(f"  {path}: {error}", "93"))
+            screen.decodes(slot_time, rows)
+    return 0
+
+
+def main():
+    args = parse_args()
+    style = Style(sys.stdout.isatty() and not args.no_color and not os.environ.get("NO_COLOR"))
+    if args.list_devices:
+        list_devices()
+        return 0
+    if not os.access(CORE, os.X_OK):
+        print(f"decodium-rx: decoder core not found: {CORE}", file=sys.stderr)
+        return 1
+    if not args.mode:
+        if args.wav or not sys.stdin.isatty():
+            print("decodium-rx: --mode is required", file=sys.stderr)
+            return 2
+        interactive(args)
+    if args.wav:
+        return decode_files(args, style)
+
+    argv = capture_command(args.source, args.device)
+    if argv and not shutil.which(argv[0]):
+        print(f"decodium-rx: {argv[0]} not found", file=sys.stderr)
+        return 1
+    runtime = os.environ.get("XDG_RUNTIME_DIR") or tempfile.gettempdir()
+    workdir = tempfile.mkdtemp(prefix="decodium-rx-", dir=runtime)
+    results = queue.Queue()
+    capture = Capture(argv)
+    decoder = Decoder(args, workdir, results)
+    screen = Screen(args, style)
+    stop = threading.Event()
+    signal.signal(signal.SIGINT, lambda *_: stop.set())
+    signal.signal(signal.SIGTERM, lambda *_: stop.set())
+
+    label = "stdin" if argv is None else f"{argv[0]} {args.device or 'default'}"
+    screen.header(label)
+    warning = clock_warning()
+    if warning:
+        screen.message(style(f"  ! {warning}", "93"))
+    capture.start()
+    decoder.start()
+
+    period = MODES[args.mode]["period"]
+    count = MODES[args.mode]["samples"]
+    next_slot = math.ceil(time.time() / period) * period
+    last = {"n": 0, "ms": 0}
+    try:
+        while not stop.is_set():
+            now = time.time()
+            if now >= next_slot + count / RATE + 0.1:
+                samples = capture.slot(next_slot, count)
+                if samples is not None:
+                    dropped = decoder.submit(next_slot, samples)
+                    if dropped:
+                        screen.message(style(f"  ! decoder too slow, skipped {dropped} slot(s)", "93"))
+                next_slot += period
+                if next_slot < now - period:            # stalled (suspend, stopped stream)
+                    next_slot = math.ceil(now / period) * period
+            while not results.empty():
+                slot_time, rows, error, took = results.get()
+                if error:
+                    screen.message(style(f"  ! {error}", "93"))
+                screen.decodes(slot_time, rows)
+                last = {"n": len(rows), "ms": int(took * 1000)}
+            if capture.eof:
+                if capture.error:
+                    screen.message(style(f"  ! audio: {capture.error}", "91"))
+                break
+            level = capture.level
+            bars = max(0, min(10, int((level + 60) / 5)))
+            wait = max(0.0, next_slot + count / RATE + 0.1 - now)
+            screen.status(f"  {args.mode.upper()}  input {level:5.1f} dBFS {'▮' * bars}{'▯' * (10 - bars)}"
+                          f"  next decode {wait:4.1f}s  last {last['n']} decodes in {last['ms']} ms"
+                          f"{'  decoding…' if decoder.busy else ''}  Ctrl+C quits")
+            time.sleep(0.1)
+    finally:
+        capture.stop()
+        screen._clear_status()
+        shutil.rmtree(workdir, ignore_errors=True)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

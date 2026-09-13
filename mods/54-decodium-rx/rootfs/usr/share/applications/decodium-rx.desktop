@@ -1,0 +1,16 @@
+[Desktop Entry]
+Type=Application
+Name=Decodium RX (terminal)
+Name[it]=Decodium RX (terminale)
+Name[de]=Decodium RX (Terminal)
+Name[fr]=Decodium RX (terminal)
+Name[es]=Decodium RX (terminal)
+GenericName=Digital mode receiver
+GenericName[it]=Ricevitore modi digitali
+Comment=FT8, FT4 and FT2 receive-only decoder in the terminal, with the Decodium 4 decoder core
+Comment[it]=Decodifica FT8, FT4 e FT2 in sola ricezione da terminale, con il decoder di Decodium 4
+Exec=decodium-rx
+Terminal=true
+Icon=decodiumos-logo
+Categories=HamRadio;AudioVideo;Audio;
+Keywords=FT8;FT4;FT2;decoder;terminal;RX;Decodium;

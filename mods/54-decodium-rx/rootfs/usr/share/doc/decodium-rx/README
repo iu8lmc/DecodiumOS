@@ -1,0 +1,30 @@
+Decodium RX - digital-mode receiver for the terminal (receive only)
+===================================================================
+
+decodium-rx captures audio from the radio's sound card, cuts it into
+UTC-aligned slots (FT8 15 s, FT4 7.5 s, FT2 3.75 s) and decodes each slot
+with decodium-rx-core, a command-line build of the Decodium 4 decode
+workers: the same C++ decoders the Decodium application runs. It never
+transmits and never touches CAT or PTT.
+
+  decodium-rx                       asks mode, dial frequency, callsign and input
+  decodium-rx -m ft8 -f 14.074 -c IU8LMC
+  decodium-rx -m ft2 -s alsa -d plughw:CARD=CODEC,DEV=0
+  decodium-rx --list-devices
+  decodium-rx --cq-only             only CQ calls
+  decodium-rx --grep 'IU8|JN70'     only matching messages
+  rtl_fm -M usb -f 144.174M -s 12k - | decodium-rx -m ft8 -s stdin
+  decodium-rx -m ft8 --wav 250913_120000.wav
+
+Decodes are appended to ~/.local/share/decodium-rx/ALL.TXT (WSJT-X
+format, --no-log to disable); --save-slots DIR keeps every slot as WAV.
+The answers to the start-up questions are remembered in
+~/.config/decodium-rx.json.
+
+The system clock must be within about half a second of UTC: DecodiumOS
+keeps it synchronised with NTP.
+
+decodium-rx-core is built from the Decodium 4 sources (GPL-3.0,
+https://github.com/iu8lmc/Decodium-4.0-Core-Shannon) at the release that
+matches the installed Decodium; its version is shown by
+  /usr/lib/decodium-rx/decodium-rx-core --version
