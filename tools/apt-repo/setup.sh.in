@@ -1,0 +1,49 @@
+#!/bin/sh
+# DecodiumOS: turn on the DecodiumOS update repository and bring this
+# system up to date without downloading a new ISO.
+#
+#   wget -qO- @URL@setup.sh | sudo sh
+#
+# Needed once on systems installed from DecodiumOS 1.1.2 or earlier; newer
+# releases ship the repository already. Afterwards updates arrive with
+# "sudo apt update && sudo apt full-upgrade" or the Software application.
+set -eu
+
+URL="@URL@"
+SUITE="@SUITE@"
+KEYRING=/usr/share/keyrings/decodiumos-archive-keyring.gpg
+SOURCES=/etc/apt/sources.list.d/decodiumos.sources
+
+if [ "$(id -u)" -ne 0 ]; then
+    echo "DecodiumOS: run this with sudo." >&2
+    exit 1
+fi
+if ! grep -qi '^ID=decodiumos' /etc/os-release; then
+    echo "DecodiumOS: this system is not DecodiumOS, nothing changed." >&2
+    exit 1
+fi
+
+echo "DecodiumOS: installing the repository signing key (fingerprint @FPR@)..."
+base64 -d > "$KEYRING" <<'EOF'
+@KEY_BASE64@
+EOF
+chmod 0644 "$KEYRING"
+
+echo "DecodiumOS: adding $URL..."
+cat > "$SOURCES" <<EOF
+# DecodiumOS updates: decodiumos-*, decodium and decodium-rx packages.
+Types: deb
+URIs: $URL
+Suites: $SUITE
+Components: main
+Architectures: $(dpkg --print-architecture)
+Signed-By: $KEYRING
+EOF
+chmod 0644 "$SOURCES"
+
+echo "DecodiumOS: updating..."
+apt-get update
+DEBIAN_FRONTEND=noninteractive apt-get install -y decodiumos-desktop
+echo
+echo "DecodiumOS is up to date: $(. /etc/os-release && echo "$PRETTY_NAME")."
+echo "Future updates arrive through Software or: sudo apt update && sudo apt full-upgrade"

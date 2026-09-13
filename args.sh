@@ -172,3 +172,10 @@ export HAM_PACKAGE_SETS="rig digital logging packet satellite sdr cw antenna too
 #   empty   — do not ship Decodium
 export DECODIUM_REPO="iu8lmc/Decodium-4.0-Core-Shannon"
 export DECODIUM_VERSION="latest"
+
+# DecodiumOS update repository: installed systems receive the decodiumos-*,
+# decodium and decodium-rx packages from here through apt / Software.
+# Published with tools/apt-repo/publish.sh, signed with the key shipped as
+# mods/50-decodiumos-base/rootfs/usr/share/keyrings/decodiumos-archive-keyring.gpg.
+export DECODIUMOS_APT_URL="https://community.ft2.it/downloads/decodiumos/apt/"
+export DECODIUMOS_APT_SUITE="stable"

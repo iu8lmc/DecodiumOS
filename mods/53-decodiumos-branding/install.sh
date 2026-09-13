@@ -117,6 +117,7 @@ judge "Build $PACKAGE"
 
 print_ok "Installing $PACKAGE..."
 apt install -y --reinstall "$deb"
+install -D -m 0644 "$deb" "/var/cache/decodiumos-debs/$(basename "$deb")"
 rm -f "$deb"
 judge "Install $PACKAGE"
 

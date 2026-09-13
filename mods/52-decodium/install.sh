@@ -29,7 +29,8 @@ EOF
 judge "Record the Decodium release source"
 
 print_ok "Installing Decodium ($DECODIUM_VERSION) from $DECODIUM_REPO..."
-decodiumos-update-decodium --repo "$DECODIUM_REPO" --version "$DECODIUM_VERSION"
+decodiumos-update-decodium --repo "$DECODIUM_REPO" --version "$DECODIUM_VERSION" \
+    --keep-deb /var/cache/decodiumos-debs
 judge "Install Decodium"
 
 test -x /opt/decodium/AppRun && test -L /usr/bin/decodium

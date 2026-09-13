@@ -96,6 +96,26 @@ rtl_fm -M usb -f 144.174M -s 12k - | decodium-rx -m ft8 -s stdin
 Le decodifiche finiscono anche in `~/.local/share/decodium-rx/ALL.TXT`
 (formato WSJT-X). Nel menu c'è "Decodium RX (terminale)".
 
+## Aggiornamenti senza riscaricare la ISO
+
+I pacchetti DecodiumOS (`decodiumos-base`, `decodiumos-branding`,
+`decodium`, `decodium-rx` e il metapacchetto `decodiumos-desktop`) arrivano
+dal repository firmato https://community.ft2.it/downloads/decodiumos/apt/,
+già attivo dalla 1.2.0: gli aggiornamenti compaiono in **Software** oppure
+con `sudo apt update && sudo apt full-upgrade`.
+
+Chi ha installato la **1.1.2 o precedenti** lo attiva una volta sola e
+riceve subito tutte le novità (compreso Decodium RX):
+
+```bash
+wget -qO- https://community.ft2.it/downloads/decodiumos/apt/setup.sh | sudo sh
+```
+
+Chiave di firma: `CECB 3E8E 9357 207C 2819  B1B5 1CB3 EA7F F53B 1793`
+(DecodiumOS Archive Signing Key). Per pubblicare una nuova versione: build,
+poi `tools/apt-repo/publish.sh dist/packages/<versione>-amd64` sull'host di
+build. Ogni versione pubblicata richiede un nuovo `TARGET_BUILD_VERSION`.
+
 Aggiornare Decodium su un sistema installato:
 
 ```bash
@@ -139,6 +159,10 @@ dentro un chroot e crea la SquashFS Live e la ISO:
 | `52-decodium` | DecodiumOS | Decodium dall'AppImage ufficiale, come pacchetto `decodium` |
 | `53-decodiumos-branding` | DecodiumOS | pacchetto `decodiumos-branding`: grafica e rebrand |
 | `54-decodium-rx` | DecodiumOS | compila il core di Decodium 4 dai sorgenti, lo prova su segnali FT8/FT4/FT2 simulati e crea `decodium-rx`; poi elimina compilatori e pacchetti `-dev` |
+| `55-decodiumos-desktop` | DecodiumOS | metapacchetto `decodiumos-desktop` che dipende da tutti i componenti della release |
+
+I pacchetti costruiti dai mod finiscono anche in `dist/packages/<versione>-<arch>/`
+per il repository degli aggiornamenti (`tools/apt-repo/publish.sh`).
 | `80`–`85` | AnduinOS | initramfs Live, locale, rete, pulizia |
 
 Aggiungere un programma: una riga in `mods/51-hamradio-apps/sets/<set>.list`.

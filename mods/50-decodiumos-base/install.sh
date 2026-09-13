@@ -69,6 +69,20 @@ printf '%s %s\n' "$TARGET_BUSINESS_NAME" "$TARGET_BUILD_VERSION" \
     > "$STAGE/etc/issue.net"
 judge "Generate distribution identity files"
 
+print_ok "Adding the DecodiumOS update repository..."
+install -d -m 0755 "$STAGE/etc/apt/sources.list.d"
+cat > "$STAGE/etc/apt/sources.list.d/decodiumos.sources" <<EOF
+# DecodiumOS updates: decodiumos-*, decodium and decodium-rx packages.
+Types: deb
+URIs: $DECODIUMOS_APT_URL
+Suites: $DECODIUMOS_APT_SUITE
+Components: main
+Architectures: $TARGET_ARCH
+Signed-By: /usr/share/keyrings/decodiumos-archive-keyring.gpg
+EOF
+chmod 0644 "$STAGE/usr/share/keyrings/decodiumos-archive-keyring.gpg"
+judge "Add the DecodiumOS update repository"
+
 print_ok "Writing $PACKAGE control file..."
 installed_size=$(du -sk --exclude=DEBIAN "$STAGE" | cut -f1)
 cat > "$STAGE/DEBIAN/control" <<EOF
@@ -86,7 +100,8 @@ Description: $TARGET_BUSINESS_NAME identity and radio station integration
  plus the system integration an amateur radio station needs: desktop access
  to CAT/PTT serial ports, ModemManager exclusion for radio interfaces,
  dialout membership for local users, tighter NTP polling for FT8/FT4/FT2,
- a Ham Radio application folder and the Decodium updater.
+ a Ham Radio application folder, the Decodium updater and the
+ $TARGET_BUSINESS_NAME update repository.
 EOF
 judge "Write $PACKAGE control file"
 
@@ -98,6 +113,8 @@ judge "Build $PACKAGE"
 print_ok "Installing $PACKAGE..."
 apt install -y --reinstall "$deb"
 judge "Install $PACKAGE"
+# Kept out of the image; build.sh collects it for the update repository.
+install -D -m 0644 "$deb" "/var/cache/decodiumos-debs/$(basename "$deb")"
 rm -f "$deb"
 
 print_ok "Verifying distribution identity..."

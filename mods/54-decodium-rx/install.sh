@@ -160,6 +160,7 @@ judge "Build the $PACKAGE package"
 
 print_ok "Installing $PACKAGE..."
 apt install -y --reinstall "$deb"
+install -D -m 0644 "$deb" "/var/cache/decodiumos-debs/$(basename "$deb")"
 judge "Install $PACKAGE"
 
 print_ok "Purging the temporary build dependencies..."

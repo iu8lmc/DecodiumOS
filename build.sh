@@ -360,6 +360,7 @@ EOF
         -wildcards -b 1M \
         -comp zstd -Xcompression-level 19 \
         -e "var/cache/apt/archives/*" \
+        -e "var/cache/decodiumos-debs" \
         -e "tmp/*" \
         -e "tmp/.*" \
         -e "swapfile"
@@ -549,6 +550,19 @@ function umount_on_exit() {
     judge "Unmount filesystems before exit"
 }
 
+# DecodiumOS: the mods leave every package they build in
+# /var/cache/decodiumos-debs (kept out of the SquashFS); collect them for
+# the update repository (tools/apt-repo/publish.sh).
+function collect_decodiumos_packages() {
+    local out="$SCRIPT_DIR/dist/packages/$TARGET_BUILD_VERSION-$TARGET_ARCH"
+    print_ok "Collecting DecodiumOS packages in $out..."
+    rm -rf "$out"
+    mkdir -p "$out"
+    cp new_building_os/var/cache/decodiumos-debs/*.deb "$out/"
+    ls -1 "$out"
+    judge "Collect DecodiumOS packages"
+}
+
 # =============   main  ================
 cd "$SCRIPT_DIR"
 bind_signal
@@ -558,6 +572,7 @@ mount_folders
 setup_apt
 run_chroot
 umount_folders
+collect_decodiumos_packages
 prepare_iso_directory
 prepare_live_grub_font
 build_iso

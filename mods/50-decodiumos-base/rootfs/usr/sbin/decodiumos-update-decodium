@@ -241,6 +241,7 @@ def main():
     parser.add_argument("--check", action="store_true", help="only report installed and available versions")
     parser.add_argument("--force", action="store_true", help="reinstall or downgrade to the requested version")
     parser.add_argument("--output-dir", help="build the .deb into this directory instead of installing it")
+    parser.add_argument("--keep-deb", metavar="DIR", help="install, and also keep a copy of the .deb in DIR")
     args = parser.parse_args()
 
     deb_arch = subprocess.run(
@@ -282,6 +283,9 @@ def main():
             return
         env = dict(os.environ, DEBIAN_FRONTEND=os.environ.get("DEBIAN_FRONTEND", "noninteractive"))
         subprocess.run(["apt-get", "install", "-y", "--allow-downgrades", deb], check=True, env=env)
+        if args.keep_deb:
+            os.makedirs(args.keep_deb, exist_ok=True)
+            shutil.copy2(deb, args.keep_deb)
     print(f"Decodium {version} installed.")
 
 
