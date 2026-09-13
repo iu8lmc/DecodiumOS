@@ -6,6 +6,12 @@ Sistema operativo Linux per radioamatori, derivato da
 si installa con l'installer nativo di AnduinOS e al primo avvio ha già
 Decodium, i modi digitali, il controllo CAT e gli strumenti SDR pronti.
 
+[![DecodiumOS in azione: clicca per il video](docs/media/decodiumos-demo.jpg)](docs/media/decodiumos-demo.mp4)
+
+*DecodiumOS 1.1.1 installato in VirtualBox: il menu Start con le app radio,
+Decodium 4 sui 14,074 MHz e l'installazione di un logbook dal negozio
+software. Clicca sull'immagine per guardare il video (1 minuto).*
+
 ## Cosa contiene
 
 | Set (`HAM_PACKAGE_SETS`) | Applicazioni |
