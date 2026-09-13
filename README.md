@@ -14,6 +14,20 @@ software (anteprima a velocità doppia). Video completo:
 [decodiumos-demo.mp4](https://github.com/iu8lmc/DecodiumOS/raw/decodiumos/docs/media/decodiumos-demo.mp4)
 (1 minuto, 6 MB).*
 
+## Download
+
+| | |
+|---|---|
+| **ISO 1.1.2** (amd64, 2,87 GB) | [DecodiumOS-1.1.2-2609131031-amd64.iso](https://community.ft2.it/downloads/decodiumos/DecodiumOS-1.1.2-2609131031-amd64.iso) |
+| **SHA-256** | `80dc46e67e89e5df8d36b79364560d0f2bbd51d56dbf94ee833cce92c08ecf9e` |
+| **Pagina ufficiale** | https://www.ft2.it/decodiumos/ |
+| **Note di rilascio** | [GitHub Releases](https://github.com/iu8lmc/DecodiumOS/releases/latest) |
+
+La ISO è ospitata su ft2.it perché GitHub accetta file di al massimo 2 GB per
+release. Scrivila su una chiavetta con [balenaEtcher](https://etcher.balena.io/)
+o [Rufus](https://rufus.ie/) (modalità DD), oppure provala in VirtualBox con
+firmware EFI.
+
 ## Cosa contiene
 
 | Set (`HAM_PACKAGE_SETS`) | Applicazioni |
