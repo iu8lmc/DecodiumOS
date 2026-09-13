@@ -75,6 +75,47 @@ class TextRule:
         return text
 
 
+class RecolorRule(TextRule):
+    """Turn the dark neutral greys of a stylesheet into Decodium navy.
+
+    Fluent's dark GTK 3/4 and GNOME Shell styles are built from a handful of
+    greys (#202020, #2B2B2B, #333333, #3C3C3C...). Each grey of level v in
+    the dark range becomes (0.55 v, 0.75 v, 1.15 v): #202020 -> #121825 and
+    #3C3C3C -> #212D45, i.e. the Decodium 4 "Ocean Blue" surfaces.
+    Lighter greys (text, borders) and every non-grey colour are kept.
+    """
+
+    HEX = re.compile(r"#([0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3})(?![0-9a-zA-Z_-])")
+    RGB = re.compile(r"(rgba?\()\s*(\d{1,3}),\s*(\d{1,3}),\s*(\d{1,3})")
+    DARK = range(0x10, 0x5B)
+
+    @staticmethod
+    def navy(v):
+        return round(v * 0.55), round(v * 0.75), min(255, round(v * 1.15))
+
+    def _hex(self, m):
+        h = m.group(1)
+        if len(h) == 3:
+            rgb, alpha = [int(c * 2, 16) for c in h], ""
+        else:
+            rgb, alpha = [int(h[i:i + 2], 16) for i in (0, 2, 4)], h[6:]
+        if rgb[0] == rgb[1] == rgb[2] and rgb[0] in self.DARK:
+            r, g, b = self.navy(rgb[0])
+            return f"#{r:02X}{g:02X}{b:02X}{alpha}"
+        return m.group(0)
+
+    def _rgb(self, m):
+        v = [int(m.group(i)) for i in (2, 3, 4)]
+        if v[0] == v[1] == v[2] and v[0] in self.DARK:
+            r, g, b = self.navy(v[0])
+            return f"{m.group(1)}{r}, {g}, {b}"
+        return m.group(0)
+
+    def transform(self, text, path):
+        text = super().transform(text, path)
+        return self.RGB.sub(self._rgb, self.HEX.sub(self._hex, text))
+
+
 OOBE_LINKS = """    links = [
         (_('DecodiumOS on GitHub'), '""" + PROJECT_URL + """',
          _('Source code, releases and issue reports for DecodiumOS'),
@@ -135,6 +176,17 @@ TEXT_RULES = [
         "/usr/share/polkit-1/actions/com.anduinos.oobe.policy",
         "/usr/share/polkit-1/actions/com.anduinos.DriverCenter.policy",
         "/etc/legal",
+    ]),
+    # Dark Fluent GTK 3/4 and Shell styles (the accent extensions copy them
+    # into each user's ~/.config/gtk-4.0 and select them for the Shell), and
+    # the Fluent Shell style the GDM login theme is generated from.
+    RecolorRule([
+        "/usr/share/themes/Fluent-round*-Dark*/gtk-4.0/gtk*.css",
+        "/usr/share/themes/Fluent-round*-Dark*/gtk-3.0/gtk*.css",
+        "/usr/share/themes/Fluent-round*-Dark*/gnome-shell/gnome-shell.css",
+        "/usr/share/themes/Fluent-round*/gtk-4.0/gtk-dark.css",
+        "/usr/share/themes/Fluent-round*/gtk-3.0/gtk-dark.css",
+        "/usr/share/anduinos-gdm3-wallpaper/fluent-gnome-shell/gnome-shell.css",
     ]),
     TextRule(
         ["/etc/update-motd.d/10-help-text"],
@@ -208,6 +260,7 @@ ASSET_RULES = [
     ("/usr/share/icons/hicolor/scalable/apps/anduinos-oobe.svg", ASSETS + "/decodiumos-logo.svg"),
     ("/usr/share/gnome-shell/extensions/arcmenu@arcmenu.com/icons/anduinos-logo.svg",
      ASSETS + "/decodiumos-logo.svg"),
+    (INSTALLER_SHARE + "/icons/welcome.svg", ASSETS + "/decodiumos-logo.svg"),
 ]
 ASSET_RULES += [(f"{INSTALLER_SHARE}/slideshow/{key}.html",
                  f"{ASSETS}/slideshow/en/{key}.html") for key in SLIDES]
@@ -458,6 +511,7 @@ def ensure_gdm_theme():
     if not (os.path.exists(GDM_TOOL) and os.path.exists(GDM_WALLPAPER)):
         return
     sources = [GDM_TOOL, GDM_WALLPAPER, "/usr/share/anduinos-gdm3-wallpaper",
+               "/usr/share/anduinos-gdm3-wallpaper/fluent-gnome-shell/gnome-shell.css",
                "/usr/share/gnome-shell/gnome-shell-theme.gresource"]
     newest = max(os.stat(s).st_mtime for s in sources if os.path.exists(s))
     if os.path.exists(GDM_GRESOURCE) and os.stat(GDM_GRESOURCE).st_mtime >= newest:

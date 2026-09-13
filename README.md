@@ -41,7 +41,9 @@ Aspetto (pacchetto `decodiumos-branding`), con i colori del tema
 
 - logo DecodiumOS, schermata di avvio (Plymouth), schermata di accesso,
   sfondi chiaro e scuro, pulsante del menu Start, colori di barra e menu,
-  finestre GTK 4 in modalità scura, menu GRUB della ISO e logo di `fastfetch`;
+  finestre e pannelli di GNOME in blu notte nel tema scuro (i grigi del tema
+  Fluent diventano le superfici di Decodium), menu GRUB della ISO e logo di
+  `fastfetch`;
 - installer, app di benvenuto, Centro driver e Aspetto si presentano come
   DecodiumOS in tutte le lingue: le traduzioni vengono riscritte insieme ai
   sorgenti, la presentazione dell'installer racconta DecodiumOS (inglese e
@@ -99,15 +101,15 @@ dentro un chroot e crea la SquashFS Live e la ISO:
 | `80`–`85` | AnduinOS | initramfs Live, locale, rete, pulizia |
 
 Aggiungere un programma: una riga in `mods/51-hamradio-apps/sets/<set>.list`.
+I pacchetti che non esistono per la release/architettura, o che si
+porterebbero dietro compilatori, `xterm` o snapd, vengono saltati con un
+avviso invece di rompere la build.
 
 La grafica nasce da `mods/53-decodiumos-branding/artwork/generate.py`, che
 scrive gli SVG (logo, sfondi, spinner, immagini della presentazione) con la
 palette di Decodium 4; la build li converte in PNG con `rsvg-convert`. Il
 testo del marchio è convertito in tracciati dal font Montserrat (SIL OFL),
 quindi il risultato non dipende dai font installati.
-I pacchetti che non esistono per la release/architettura, o che si
-porterebbero dietro compilatori, `xterm` o snapd, vengono saltati con un
-avviso invece di rompere la build.
 
 ## Seguire AnduinOS upstream
 
@@ -132,8 +134,8 @@ git merge <nuovo-tag>        # es. 2.1.0
   `/usr/lib/anduinos-installer-beta`. Rinominarli vorrebbe dire ricompilare
   e ospitare in proprio tutti quei pacchetti, perdendo gli aggiornamenti di
   AnduinOS. I pacchetti di DecodiumOS si chiamano `decodiumos-*`.
-- Le app GTK 3 e Qt mantengono il tema Fluent scuro con accento blu; il blu
-  notte di Decodium si applica alle app GTK 4 dei nuovi utenti.
+- Il tema chiaro resta quello Fluent standard; le app Qt seguono il proprio
+  tema (Decodium usa già i suoi colori Ocean Blue).
 - La suite di accettazione QEMU (`make test`) verifica ancora il marchio
   AnduinOS (testo della tty, logo) e va adattata; i test unitari girano solo
   su Linux.
