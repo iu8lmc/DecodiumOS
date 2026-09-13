@@ -1,0 +1,13 @@
+// DecodiumOS system-wide fastfetch defaults (a user's own
+// ~/.config/fastfetch/config.jsonc takes precedence).
+{
+    "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
+    "logo": {
+        "type": "file",
+        "source": "/usr/share/decodiumos/fastfetch-logo.txt",
+        "color": { "1": "96", "2": "94" }
+    },
+    "display": {
+        "color": { "keys": "96" }
+    }
+}

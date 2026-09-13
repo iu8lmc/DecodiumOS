@@ -306,6 +306,11 @@ elif loadfont /isolinux/anduinos-unicode-28.pf2 ; then
     terminal_output gfxterm
 fi
 
+# DecodiumOS colours (Decodium 4 Ocean Blue: signal cyan on dark).
+set color_normal=light-gray/black
+set menu_color_normal=light-cyan/black
+set menu_color_highlight=black/light-cyan
+
 set default="0"
 set timeout=10
 

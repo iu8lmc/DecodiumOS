@@ -1,0 +1,27 @@
+/* DecodiumOS: Decodium 4 "Ocean Blue" colours for GTK 4 / libadwaita
+ * applications in dark mode (Settings, Files, Text Editor...). Light mode
+ * keeps the stock look. Delete this file to return to the stock colours. */
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --window-bg-color: #111827;
+    --window-fg-color: #E8F4FD;
+    --view-bg-color: #0A0F1A;
+    --view-fg-color: #E8F4FD;
+    --headerbar-bg-color: #162236;
+    --headerbar-fg-color: #E8F4FD;
+    --headerbar-backdrop-color: #111827;
+    --sidebar-bg-color: #0E1524;
+    --sidebar-fg-color: #E8F4FD;
+    --sidebar-backdrop-color: #0E1524;
+    --secondary-sidebar-bg-color: #0C1320;
+    --secondary-sidebar-fg-color: #E8F4FD;
+    --card-bg-color: rgb(74 144 226 / 8%);
+    --card-fg-color: #E8F4FD;
+    --dialog-bg-color: #1E2D42;
+    --dialog-fg-color: #E8F4FD;
+    --popover-bg-color: #1E2D42;
+    --popover-fg-color: #E8F4FD;
+    --thumbnail-bg-color: #1E2D42;
+  }
+}

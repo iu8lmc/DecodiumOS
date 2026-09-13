@@ -1,0 +1,11 @@
+[Plymouth Theme]
+Name=DecodiumOS Text
+Description=Text mode boot splash for DecodiumOS
+ModuleName=ubuntu-text
+
+[ubuntu-text]
+title=DecodiumOS
+black=0x0A0F1A
+white=0xE8F4FD
+brown=0x00D4FF
+blue=0x4A90E2

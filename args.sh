@@ -119,7 +119,7 @@ export TARGET_NAME="decodiumos"
 export TARGET_BUSINESS_NAME="DecodiumOS"
 
 # Version number. Must be in the format of x.y.z
-export TARGET_BUILD_VERSION="1.0.0"
+export TARGET_BUILD_VERSION="1.1.0"
 
 # Target CPU architecture.
 #   amd64 — Intel / AMD 64-bit

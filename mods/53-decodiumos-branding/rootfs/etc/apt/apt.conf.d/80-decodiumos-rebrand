@@ -1,0 +1,4 @@
+// DecodiumOS: after every dpkg run, regenerate the DecodiumOS copies of
+// AnduinOS-branded files that an upgrade may have refreshed, and keep the
+// DecodiumOS boot splash and login theme selected.
+DPkg::Post-Invoke { "if [ -x /usr/libexec/decodiumos/rebrand ]; then /usr/libexec/decodiumos/rebrand --quiet || true; fi"; };

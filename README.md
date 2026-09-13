@@ -35,6 +35,25 @@ Integrazione di sistema (pacchetto `decodiumos-base`):
 - identità `ID=decodiumos`, `ID_LIKE="ubuntu debian"`, `UBUNTU_CODENAME`
   conservato (PPA e script di terze parti continuano a funzionare).
 
+Aspetto (pacchetto `decodiumos-branding`), con i colori del tema
+"Ocean Blue" di Decodium 4 (fondo `#0A0F1A`, blu `#4A90E2`, segnale
+`#00D4FF`, decodifica `#00FF88`):
+
+- logo DecodiumOS, schermata di avvio (Plymouth), schermata di accesso,
+  sfondi chiaro e scuro, pulsante del menu Start, colori di barra e menu,
+  finestre GTK 4 in modalità scura, menu GRUB della ISO e logo di `fastfetch`;
+- installer, app di benvenuto, Centro driver e Aspetto si presentano come
+  DecodiumOS in tutte le lingue: le traduzioni vengono riscritte insieme ai
+  sorgenti, la presentazione dell'installer racconta DecodiumOS (inglese e
+  italiano) e la voce di avvio UEFI si chiama `DecodiumOS`.
+
+I file AnduinOS coinvolti vengono deviati con `dpkg-divert` (gli originali
+restano accanto come `*.anduinos`) e `/usr/libexec/decodiumos/rebrand`
+rigenera le copie DecodiumOS; un hook APT lo riesegue dopo ogni
+aggiornamento, così i pacchetti AnduinOS continuano ad aggiornarsi senza
+riportare il vecchio marchio. `sudo /usr/libexec/decodiumos/rebrand --undo`
+ripristina tutto.
+
 Aggiornare Decodium su un sistema installato:
 
 ```bash
@@ -76,9 +95,16 @@ dentro un chroot e crea la SquashFS Live e la ISO:
 | `50-decodiumos-base` | DecodiumOS | pacchetto `decodiumos-base` (file in `rootfs/`) |
 | `51-hamradio-apps` | DecodiumOS | set di applicazioni da `sets/*.list` |
 | `52-decodium` | DecodiumOS | Decodium dall'AppImage ufficiale, come pacchetto `decodium` |
+| `53-decodiumos-branding` | DecodiumOS | pacchetto `decodiumos-branding`: grafica e rebrand |
 | `80`–`85` | AnduinOS | initramfs Live, locale, rete, pulizia |
 
 Aggiungere un programma: una riga in `mods/51-hamradio-apps/sets/<set>.list`.
+
+La grafica nasce da `mods/53-decodiumos-branding/artwork/generate.py`, che
+scrive gli SVG (logo, sfondi, spinner, immagini della presentazione) con la
+palette di Decodium 4; la build li converte in PNG con `rsvg-convert`. Il
+testo del marchio è convertito in tracciati dal font Montserrat (SIL OFL),
+quindi il risultato non dipende dai font installati.
 I pacchetti che non esistono per la release/architettura, o che si
 porterebbero dietro compilatori, `xterm` o snapd, vengono saltati con un
 avviso invece di rompere la build.
@@ -101,8 +127,13 @@ git merge <nuovo-tag>        # es. 2.1.0
 
 ## Limiti noti
 
-- Plymouth, sfondi, tema e testi dell'installer sono ancora quelli di
-  AnduinOS (anche il nome host predefinito proposto dall'installer).
+- I nomi tecnici restano quelli di AnduinOS: pacchetti `anduinos-*`,
+  repository `packages.anduinos.com`, percorsi come
+  `/usr/lib/anduinos-installer-beta`. Rinominarli vorrebbe dire ricompilare
+  e ospitare in proprio tutti quei pacchetti, perdendo gli aggiornamenti di
+  AnduinOS. I pacchetti di DecodiumOS si chiamano `decodiumos-*`.
+- Le app GTK 3 e Qt mantengono il tema Fluent scuro con accento blu; il blu
+  notte di Decodium si applica alle app GTK 4 dei nuovi utenti.
 - La suite di accettazione QEMU (`make test`) verifica ancora il marchio
   AnduinOS (testo della tty, logo) e va adattata; i test unitari girano solo
   su Linux.
@@ -117,4 +148,6 @@ GPL-3.0, come AnduinOS (vedi [LICENSE](LICENSE) e [OSS.md](OSS.md)).
 Basato sul lavoro del team AnduinOS / Aiursoft. Decodium è di IU8LMC e
 contributori ([Decodium 4](https://github.com/iu8lmc/Decodium-4.0-Core-Shannon)).
 Le applicazioni radioamatoriali provengono dagli archivi Ubuntu e Debian
-Hamradio, ciascuna con la propria licenza.
+Hamradio, ciascuna con la propria licenza. Il marchio DecodiumOS usa il font
+[Montserrat](https://github.com/JulietaUla/Montserrat) (SIL Open Font
+License 1.1).

@@ -1,0 +1,558 @@
+#!/usr/bin/python3
+"""Present the AnduinOS-branded parts of the base system as DecodiumOS.
+
+DecodiumOS keeps receiving the AnduinOS packages it is built on. Their
+user-facing files (installer, welcome app, launchers, translations, logos,
+the installer slideshow) are diverted with dpkg-divert to *.anduinos and a
+DecodiumOS copy is generated in their place. The originals keep receiving
+upgrades at the diverted path; an APT hook re-runs this tool after every
+dpkg run so the DecodiumOS copies follow them, and re-asserts the DecodiumOS
+Plymouth and GDM themes if an AnduinOS package switched them back.
+
+    rebrand            apply (idempotent, only rewrites what changed)
+    rebrand --undo     remove every DecodiumOS copy and diversion
+    rebrand --check    report what apply would change, change nothing
+"""
+
+import argparse
+import fnmatch
+import glob
+import os
+import re
+import shutil
+import struct
+import subprocess
+import sys
+import tempfile
+
+PACKAGE = "decodiumos-branding"
+SUFFIX = ".anduinos"
+ASSETS = "/usr/share/decodiumos"
+BRAND = [("AnduinOS", "DecodiumOS")]
+PROJECT_URL = "https://github.com/iu8lmc/DecodiumOS"
+ISSUES_URL = PROJECT_URL + "/issues"
+
+INSTALLER_LIB = "/usr/lib/anduinos-installer-beta"
+INSTALLER_SHARE = "/usr/share/anduinos-installer-beta"
+SLIDES = ("welcome", "build", "apps", "gaming", "privacy", "root", "support")
+SLIDE_IMAGES = ("welcome", "jb", "st", "gaming", "pv", "sc")
+SLIDE_LANGUAGES = ("it",)          # DecodiumOS slides exist in English + these
+
+
+class TextRule:
+    """Rewrite text files: brand names, exact pairs, and whole code blocks."""
+
+    def __init__(self, globs, pairs=(), protect=(), blocks=(), python=False, required=()):
+        self.globs = globs
+        self.pairs = list(pairs)
+        self.protect = [re.compile(p) for p in protect]
+        self.blocks = list(blocks)      # (start marker, end marker, replacement)
+        self.python = python
+        self.required = required        # patterns that must no longer appear
+
+    def transform(self, text, path):
+        out = []
+        for line in text.splitlines(keepends=True):
+            if any(p.search(line) for p in self.protect):
+                out.append(line)
+                continue
+            # Brand first, so exact pairs match the rebranded text and may
+            # still name AnduinOS where it is the true author or source.
+            for old, new in BRAND + self.pairs:
+                line = line.replace(old, new)
+            out.append(line)
+        text = "".join(out)
+        for start, end, replacement in self.blocks:
+            i = text.find(start)
+            j = text.find(end, i + len(start)) if i >= 0 else -1
+            if i < 0 or j < 0:
+                warn(f"{path}: block {start.strip()[:40]!r} not found, left generic")
+                continue
+            text = text[:i] + replacement + text[j:]
+        for pattern in self.required:
+            if pattern in text:
+                raise RuntimeError(f"{path}: {pattern!r} still present after rebranding")
+        return text
+
+
+OOBE_LINKS = """    links = [
+        (_('DecodiumOS on GitHub'), '""" + PROJECT_URL + """',
+         _('Source code, releases and issue reports for DecodiumOS'),
+         'github.svg'),
+        (_('Decodium and FT2'), 'https://www.ft2.it/',
+         _('Decodium, the FT2 digital mode and the user manual'),
+         'open-book-symbolic.svg'),
+        (_('Report an Issue'), '""" + ISSUES_URL + """',
+         _('Found a bug or have a feature request? Let us know!'),
+         'bug-symbolic.svg'),
+        (_('AnduinOS Documentation'), 'https://docs.anduinos.com/',
+         _('DecodiumOS is built on AnduinOS: its guides apply to the base system'),
+         'help-about-symbolic.svg'),
+        (_('Ask Ubuntu'), 'https://askubuntu.com/',
+         _('Almost all Ubuntu solutions apply directly to DecodiumOS'),
+         'help-about-symbolic.svg'),
+"""
+
+TEXT_RULES = [
+    # Native installer (Live image only; it removes itself from the target).
+    # EFI/AnduinOS becomes EFI/DecodiumOS everywhere, including the
+    # lower-case comparisons of its ESP ownership checks.
+    TextRule(
+        [INSTALLER_LIB + "/**/*.py", "/usr/bin/anduinos-installer-beta",
+         "/usr/bin/anduinos-installer-executor", "/usr/bin/anduinos-installer-storage-probe"],
+        pairs=[('("efi", "anduinos")', '("efi", "decodiumos")'),
+               ('startswith("anduinos ")', 'startswith("decodiumos ")'),
+               ('DEFAULT_HOSTNAME_PREFIX = "anduinos"', 'DEFAULT_HOSTNAME_PREFIX = "decodiumos"')],
+        python=True,
+        required=['("efi", "anduinos")', "EFI/AnduinOS"],
+    ),
+    # Welcome / first-run app. The bash-prediction markers identify blocks
+    # already written into users' ~/.bashrc and must never change.
+    TextRule(
+        ["/usr/bin/anduinos-oobe"],
+        pairs=[("dialog.set_developer_name(_('DecodiumOS Team'))",
+                "dialog.set_developer_name('DecodiumOS · AnduinOS Team')"),
+               ("'https://www.anduinos.com'", f"'{PROJECT_URL}'"),
+               ("'https://github.com/AiursoftWeb/AnduinOS-Packages/issues'", f"'{ISSUES_URL}'")],
+        protect=[r"Bash command predictions"],
+        blocks=[("    links = [\n        (_('Official Documentation')",
+                 "    ]\n\n    for name, url, desc_text, link_icon in links:",
+                 OOBE_LINKS)],
+        python=True,
+    ),
+    TextRule(["/usr/lib/python3/dist-packages/anduinos_appearance/*.py",
+              "/usr/lib/python3/dist-packages/anduinos_driver_center/*.py"], python=True),
+    TextRule([
+        "/usr/share/applications/anduinos-installer-beta.desktop",
+        "/usr/share/applications/anduinos-oobe.desktop",
+        "/usr/share/applications/anduinos-appearance.desktop",
+        "/usr/share/applications/com.anduinos.DriverCenter.desktop",
+        "/usr/share/metainfo/anduinos-installer-beta.metainfo.xml",
+        "/usr/share/metainfo/anduinos-oobe.metainfo.xml",
+        "/usr/share/metainfo/anduinos-appearance.metainfo.xml",
+        "/usr/share/metainfo/com.anduinos.DriverCenter.metainfo.xml",
+        "/usr/share/polkit-1/actions/com.anduinos.installer-beta.policy",
+        "/usr/share/polkit-1/actions/com.anduinos.oobe.policy",
+        "/usr/share/polkit-1/actions/com.anduinos.DriverCenter.policy",
+        "/etc/legal",
+    ]),
+    TextRule(
+        ["/etc/update-motd.d/10-help-text"],
+        pairs=[('printf " * Documentation:  https://docs.anduinos.com\\n"',
+                'printf " * Decodium:       https://www.ft2.it\\n"'),
+               ('printf " * Community:      https://github.com/Anduin2017/AnduinOS/discussions\\n"',
+                f'printf " * Issues:         {ISSUES_URL}\\n"'),
+               ('printf " * Source:         https://github.com/AiursoftWeb/AnduinOS-2\\n"',
+                f'printf " * Source:         {PROJECT_URL}\\n"')],
+    ),
+]
+
+# gettext domains whose msgids contain the brand: rewritten together with
+# the Python sources above so every language keeps its translation.
+MO_DOMAINS = ["anduinos-installer-beta", "anduinos-oobe", "anduinos-appearance",
+              "anduinos-driver-center"]
+MO_PROTECT = [re.compile(r"Bash command predictions")]
+MO_EXTRA = {
+    "anduinos-oobe": {
+        "it": {
+            "DecodiumOS on GitHub": "DecodiumOS su GitHub",
+            "Source code, releases and issue reports for DecodiumOS":
+                "Codice sorgente, rilasci e segnalazioni per DecodiumOS",
+            "Decodium and FT2": "Decodium e FT2",
+            "Decodium, the FT2 digital mode and the user manual":
+                "Decodium, il modo digitale FT2 e il manuale utente",
+            "AnduinOS Documentation": "Documentazione di AnduinOS",
+            "DecodiumOS is built on AnduinOS: its guides apply to the base system":
+                "DecodiumOS è basato su AnduinOS: le sue guide valgono per il sistema di base",
+        },
+        "de": {
+            "DecodiumOS on GitHub": "DecodiumOS auf GitHub",
+            "Source code, releases and issue reports for DecodiumOS":
+                "Quellcode, Versionen und Fehlerberichte für DecodiumOS",
+            "Decodium and FT2": "Decodium und FT2",
+            "Decodium, the FT2 digital mode and the user manual":
+                "Decodium, die digitale Betriebsart FT2 und das Handbuch",
+            "AnduinOS Documentation": "AnduinOS-Dokumentation",
+            "DecodiumOS is built on AnduinOS: its guides apply to the base system":
+                "DecodiumOS basiert auf AnduinOS: dessen Anleitungen gelten für das Basissystem",
+        },
+        "es": {
+            "DecodiumOS on GitHub": "DecodiumOS en GitHub",
+            "Source code, releases and issue reports for DecodiumOS":
+                "Código fuente, versiones e informes de errores de DecodiumOS",
+            "Decodium and FT2": "Decodium y FT2",
+            "Decodium, the FT2 digital mode and the user manual":
+                "Decodium, el modo digital FT2 y el manual de usuario",
+            "AnduinOS Documentation": "Documentación de AnduinOS",
+            "DecodiumOS is built on AnduinOS: its guides apply to the base system":
+                "DecodiumOS se basa en AnduinOS: sus guías valen para el sistema base",
+        },
+        "fr": {
+            "DecodiumOS on GitHub": "DecodiumOS sur GitHub",
+            "Source code, releases and issue reports for DecodiumOS":
+                "Code source, versions et signalements de DecodiumOS",
+            "Decodium and FT2": "Decodium et FT2",
+            "Decodium, the FT2 digital mode and the user manual":
+                "Decodium, le mode numérique FT2 et le manuel utilisateur",
+            "AnduinOS Documentation": "Documentation d'AnduinOS",
+            "DecodiumOS is built on AnduinOS: its guides apply to the base system":
+                "DecodiumOS est basé sur AnduinOS : ses guides s'appliquent au système de base",
+        },
+    },
+}
+
+# Files replaced by a DecodiumOS asset (target, source).
+ASSET_RULES = [
+    ("/usr/share/pixmaps/anduinos_text_smaller.png", ASSETS + "/decodiumos-login-logo.png"),
+    ("/usr/share/anduinos-oobe/icons/anduinos-oobe.svg", ASSETS + "/decodiumos-logo.svg"),
+    ("/usr/share/icons/hicolor/scalable/apps/anduinos-oobe.svg", ASSETS + "/decodiumos-logo.svg"),
+    ("/usr/share/gnome-shell/extensions/arcmenu@arcmenu.com/icons/anduinos-logo.svg",
+     ASSETS + "/decodiumos-logo.svg"),
+]
+ASSET_RULES += [(f"{INSTALLER_SHARE}/slideshow/{key}.html",
+                 f"{ASSETS}/slideshow/en/{key}.html") for key in SLIDES]
+ASSET_RULES += [(f"{INSTALLER_SHARE}/slideshow/l10n/{lang}/{key}.html",
+                 f"{ASSETS}/slideshow/{lang}/{key}.html")
+                for lang in SLIDE_LANGUAGES for key in SLIDES]
+ASSET_RULES += [(f"{INSTALLER_SHARE}/slideshow/screenshots/{name}.png",
+                 f"{ASSETS}/slideshow/screenshots/{name}.png") for name in SLIDE_IMAGES]
+
+# Files moved out of the way without a replacement: AnduinOS slides in
+# languages DecodiumOS has no slides for, so the installer falls back to the
+# English DecodiumOS slides instead of showing AnduinOS marketing.
+HIDE_GLOBS = [f"{INSTALLER_SHARE}/slideshow/l10n/*/*.html"]
+
+ALTERNATIVES = [
+    ("default.plymouth", "/usr/share/plymouth/themes/decodiumos/decodiumos.plymouth", True),
+    ("text.plymouth", "/usr/share/plymouth/themes/decodiumos-text/decodiumos-text.plymouth", True),
+    ("gdm-theme.gresource", "/var/lib/decodiumos/gdm-theme.gresource", False),
+]
+GDM_GRESOURCE = "/var/lib/decodiumos/gdm-theme.gresource"
+GDM_WALLPAPER = "/usr/share/backgrounds/decodiumos/decodiumos-dark.png"
+GDM_TOOL = "/usr/bin/anduinos-gdm-set-wallpaper"
+
+QUIET = False
+CHECK = False
+changes = []
+
+
+def log(message):
+    if not QUIET:
+        print(f"rebrand: {message}")
+
+
+def warn(message):
+    print(f"rebrand: warning: {message}", file=sys.stderr)
+
+
+def in_chroot():
+    for command in (["systemd-detect-virt", "--quiet", "--chroot"], ["ischroot"]):
+        try:
+            if subprocess.run(command, stdout=subprocess.DEVNULL,
+                              stderr=subprocess.DEVNULL).returncode == 0:
+                return True
+        except FileNotFoundError:
+            continue
+    return False
+
+
+def our_diversions():
+    """{diverted path: diversion target} for diversions owned by PACKAGE."""
+    out = subprocess.run(["dpkg-divert", "--list"], capture_output=True, text=True,
+                         check=True).stdout
+    result = {}
+    for line in out.splitlines():
+        m = re.match(r"(?:local )?diversion of (.+) to (.+) by (\S+)$", line)
+        if m and m.group(3) == PACKAGE:
+            result[m.group(1)] = m.group(2)
+    return result
+
+
+def divert(path):
+    changes.append(f"divert {path}")
+    if CHECK:
+        return
+    subprocess.run(["dpkg-divert", "--package", PACKAGE, "--add", "--rename",
+                    "--divert", path + SUFFIX, path], check=True, stdout=subprocess.DEVNULL)
+
+
+def undivert(path):
+    """Delete our copy and give the path back to the AnduinOS original."""
+    changes.append(f"undivert {path}")
+    if CHECK:
+        return
+    if os.path.lexists(path):
+        os.unlink(path)
+    subprocess.run(["dpkg-divert", "--package", PACKAGE, "--remove", "--rename",
+                    "--divert", path + SUFFIX, path], check=True, stdout=subprocess.DEVNULL)
+
+
+def is_python(path, text):
+    first = text.split("\n", 1)[0]
+    return path.endswith(".py") or (first.startswith("#!") and "python" in first)
+
+
+def targets(patterns, diversions):
+    """Concrete target paths for the glob patterns, diverted or not."""
+    found = set()
+    for pattern in patterns:
+        for path in glob.glob(pattern, recursive=True):
+            if not path.endswith(SUFFIX) and os.path.isfile(path):
+                found.add(path)
+        for path in glob.glob(pattern + SUFFIX, recursive=True):
+            found.add(path[:-len(SUFFIX)])
+    for path in diversions:
+        if any(fnmatch.fnmatch(path, p.replace("**/", "*")) for p in patterns):
+            found.add(path)
+    return sorted(found)
+
+
+def write_if_changed(path, data, mode):
+    if os.path.exists(path) and not os.path.islink(path):
+        with open(path, "rb") as handle:
+            if handle.read() == data:
+                return False
+    changes.append(f"write {path}")
+    if CHECK:
+        return True
+    directory = os.path.dirname(path)
+    fd, tmp = tempfile.mkstemp(dir=directory, prefix=".decodiumos-")
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(data)
+        os.chmod(tmp, mode)
+        os.replace(tmp, path)
+    except BaseException:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+        raise
+    return True
+
+
+def source_of(path, diversions):
+    """Path of the AnduinOS original, diverting it first if needed."""
+    if path not in diversions:
+        if not os.path.exists(path):
+            return None
+        divert(path)
+        diversions[path] = path + SUFFIX
+        if CHECK:
+            return path
+    return path + SUFFIX
+
+
+def apply_text(rule, diversions):
+    for path in targets(rule.globs, diversions):
+        source = source_of(path, diversions)
+        if not source or not os.path.exists(source):
+            continue
+        with open(source, "rb") as handle:
+            raw = handle.read()
+        try:
+            text = raw.decode("utf-8")
+        except UnicodeDecodeError:
+            warn(f"{path} is not UTF-8 text, skipped")
+            continue
+        new_text = rule.transform(text, path)
+        if rule.python and is_python(path, text):
+            compile(new_text, path, "exec")     # never install a broken module
+        mode = os.stat(source).st_mode & 0o7777
+        write_if_changed(path, new_text.encode("utf-8"), mode)
+
+
+def read_mo(data):
+    magic = struct.unpack("<I", data[:4])[0]
+    endian = "<" if magic == 0x950412DE else ">"
+    _, count, originals, translations = struct.unpack(endian + "4I", data[4:20])
+    entries = []
+    for i in range(count):
+        length, offset = struct.unpack(endian + "2I", data[originals + 8 * i:originals + 8 * i + 8])
+        key = data[offset:offset + length]
+        length, offset = struct.unpack(endian + "2I", data[translations + 8 * i:translations + 8 * i + 8])
+        entries.append((key, data[offset:offset + length]))
+    return entries
+
+
+def write_mo(entries):
+    """GNU .mo without hash table: sorted originals, lookups by bisection."""
+    entries = sorted(entries.items())
+    count = len(entries)
+    originals = 28
+    translations = originals + 8 * count
+    offset = translations + 8 * count
+    otable, ttable, blob = b"", b"", b""
+    for key, _ in entries:
+        otable += struct.pack("<2I", len(key), offset + len(blob))
+        blob += key + b"\0"
+    for _, value in entries:
+        ttable += struct.pack("<2I", len(value), offset + len(blob))
+        blob += value + b"\0"
+    header = struct.pack("<7I", 0x950412DE, 0, count, originals, translations, 0, offset)
+    return header + otable + ttable + blob
+
+
+def brand_bytes(value):
+    text = value.decode("utf-8")
+    for old, new in BRAND:
+        text = text.replace(old, new)
+    return text.encode("utf-8")
+
+
+def apply_mo(diversions):
+    for domain in MO_DOMAINS:
+        pattern = f"/usr/share/locale/*/LC_MESSAGES/{domain}.mo"
+        for path in targets([pattern], diversions):
+            source = source_of(path, diversions)
+            if not source or not os.path.exists(source):
+                continue
+            with open(source, "rb") as handle:
+                entries = read_mo(handle.read())
+            result = {}
+            for key, value in entries:
+                if any(p.search(key.decode("utf-8", "replace")) for p in MO_PROTECT):
+                    result[key] = value
+                else:
+                    result[brand_bytes(key)] = brand_bytes(value)
+            language = path.split("/locale/")[1].split("/")[0]
+            extra = MO_EXTRA.get(domain, {}).get(language.split("_")[0], {})
+            for key, value in extra.items():
+                result.setdefault(key.encode("utf-8"), value.encode("utf-8"))
+            write_if_changed(path, write_mo(result), 0o644)
+
+
+def apply_assets(diversions):
+    for target, asset in ASSET_RULES:
+        if not os.path.exists(asset):
+            warn(f"missing asset {asset}")
+            continue
+        if not os.path.exists(target) and target not in diversions:
+            continue                        # the AnduinOS file does not exist here
+        source_of(target, diversions)
+        with open(asset, "rb") as handle:
+            write_if_changed(target, handle.read(), 0o644)
+
+
+def apply_hidden(diversions):
+    provided = {t for t, _ in ASSET_RULES}
+    for path in targets(HIDE_GLOBS, diversions):
+        if path in provided:
+            continue
+        if path not in diversions and os.path.exists(path):
+            divert(path)
+            diversions[path] = path + SUFFIX
+        elif os.path.exists(path) and os.path.exists(path + SUFFIX):
+            changes.append(f"hide {path}")
+            if not CHECK:
+                os.unlink(path)
+
+
+def drop_orphans(diversions):
+    """Upstream removed a file: drop our copy and the diversion."""
+    for path, target in list(diversions.items()):
+        if not os.path.lexists(target):
+            undivert(path)
+            diversions.pop(path)
+
+
+def ensure_gdm_theme():
+    if not (os.path.exists(GDM_TOOL) and os.path.exists(GDM_WALLPAPER)):
+        return
+    sources = [GDM_TOOL, GDM_WALLPAPER, "/usr/share/anduinos-gdm3-wallpaper",
+               "/usr/share/gnome-shell/gnome-shell-theme.gresource"]
+    newest = max(os.stat(s).st_mtime for s in sources if os.path.exists(s))
+    if os.path.exists(GDM_GRESOURCE) and os.stat(GDM_GRESOURCE).st_mtime >= newest:
+        return
+    changes.append(f"generate {GDM_GRESOURCE}")
+    if CHECK:
+        return
+    os.makedirs(os.path.dirname(GDM_GRESOURCE), exist_ok=True)
+    subprocess.run([GDM_TOOL, "--wallpaper", GDM_WALLPAPER, "--output", GDM_GRESOURCE],
+                   check=True, stdout=subprocess.DEVNULL)
+
+
+def current_alternative(name):
+    result = subprocess.run(["update-alternatives", "--query", name], capture_output=True,
+                            text=True)
+    for line in result.stdout.splitlines():
+        if line.startswith("Value: "):
+            return line.split(": ", 1)[1]
+    return None
+
+
+def ensure_alternatives():
+    initramfs = False
+    for name, path, needs_initramfs in ALTERNATIVES:
+        if not os.path.exists(path):
+            continue
+        if current_alternative(name) == path:
+            continue
+        changes.append(f"select {name} = {path}")
+        if CHECK:
+            continue
+        link = {"default.plymouth": "/usr/share/plymouth/themes/default.plymouth",
+                "text.plymouth": "/usr/share/plymouth/themes/text.plymouth",
+                "gdm-theme.gresource": "/usr/share/gnome-shell/gdm-theme.gresource"}[name]
+        subprocess.run(["update-alternatives", "--install", link, name, path, "200"],
+                       check=True, stdout=subprocess.DEVNULL)
+        subprocess.run(["update-alternatives", "--set", name, path], check=True,
+                       stdout=subprocess.DEVNULL)
+        initramfs = initramfs or needs_initramfs
+    if initramfs and not CHECK and not in_chroot() and shutil.which("update-initramfs"):
+        log("boot splash changed, updating the initramfs")
+        subprocess.run(["update-initramfs", "-u"], check=False)
+
+
+def refresh_caches():
+    if CHECK or not changes:
+        return
+    if shutil.which("gtk-update-icon-cache"):
+        subprocess.run(["gtk-update-icon-cache", "-q", "-f", "/usr/share/icons/hicolor"],
+                       check=False)
+    if shutil.which("update-desktop-database"):
+        subprocess.run(["update-desktop-database", "-q", "/usr/share/applications"], check=False)
+
+
+def apply():
+    diversions = our_diversions()
+    drop_orphans(diversions)
+    for rule in TEXT_RULES:
+        apply_text(rule, diversions)
+    apply_mo(diversions)
+    apply_assets(diversions)
+    apply_hidden(diversions)
+    ensure_gdm_theme()
+    ensure_alternatives()
+    refresh_caches()
+
+
+def undo():
+    for path in sorted(our_diversions()):
+        undivert(path)
+    for name, path, _ in ALTERNATIVES:
+        if os.path.exists(path) and not CHECK:
+            subprocess.run(["update-alternatives", "--remove", name, path], check=False,
+                           stdout=subprocess.DEVNULL)
+    refresh_caches()
+
+
+def main():
+    global QUIET, CHECK
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--undo", action="store_true", help="restore every AnduinOS original")
+    parser.add_argument("--check", action="store_true", help="report changes, change nothing")
+    parser.add_argument("--quiet", action="store_true", help="only print warnings")
+    args = parser.parse_args()
+    QUIET, CHECK = args.quiet, args.check
+    if os.geteuid() != 0 and not CHECK:
+        print("rebrand: must run as root", file=sys.stderr)
+        return 1
+    undo() if args.undo else apply()
+    if CHECK:
+        print("\n".join(changes) if changes else "rebrand: nothing to do")
+    else:
+        log(f"{len(changes)} change(s)")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

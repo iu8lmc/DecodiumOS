@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE wallpapers SYSTEM "gnome-wp-list.dtd">
+<wallpapers>
+  <wallpaper deleted="false">
+    <name>DecodiumOS</name>
+    <filename>/usr/share/backgrounds/decodiumos/decodiumos-light.png</filename>
+    <filename-dark>/usr/share/backgrounds/decodiumos/decodiumos-dark.png</filename-dark>
+    <options>zoom</options>
+    <shade_type>solid</shade_type>
+    <pcolor>#0A0F1A</pcolor>
+    <scolor>#111827</scolor>
+  </wallpaper>
+</wallpapers>

@@ -1,0 +1,10 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    remove|deconfigure)
+        # Give every diverted file back to its AnduinOS package and drop the
+        # DecodiumOS boot splash and login theme alternatives.
+        /usr/libexec/decodiumos/rebrand --undo || true
+        ;;
+esac

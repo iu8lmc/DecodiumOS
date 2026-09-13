@@ -52,6 +52,9 @@ VERSION_CODENAME=$TARGET_UBUNTU_VERSION
 ID=$TARGET_NAME
 ID_LIKE="ubuntu debian"
 HOME_URL="$TARGET_HOME_URL"
+SUPPORT_URL="https://github.com/iu8lmc/DecodiumOS"
+BUG_REPORT_URL="https://github.com/iu8lmc/DecodiumOS/issues"
+LOGO=decodiumos-logo
 UBUNTU_CODENAME=$TARGET_UBUNTU_VERSION
 EOF
 cat > "$STAGE/etc/lsb-release" <<EOF
@@ -93,7 +96,7 @@ dpkg-deb --root-owner-group --build "$STAGE" "$deb"
 judge "Build $PACKAGE"
 
 print_ok "Installing $PACKAGE..."
-apt install -y "$deb"
+apt install -y --reinstall "$deb"
 judge "Install $PACKAGE"
 rm -f "$deb"
 

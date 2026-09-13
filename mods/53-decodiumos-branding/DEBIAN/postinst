@@ -1,0 +1,11 @@
+#!/bin/sh
+set -e
+
+if [ "$1" = configure ]; then
+    # Divert the AnduinOS-branded files, generate the DecodiumOS copies and
+    # select the DecodiumOS boot splash and login theme. A failure here must
+    # not leave the package half-configured on a user's machine: the APT hook
+    # retries after the next package operation.
+    /usr/libexec/decodiumos/rebrand || \
+        echo "decodiumos-branding: rebrand failed, it will be retried by the next apt run" >&2
+fi
