@@ -18,10 +18,13 @@ software (anteprima a velocità doppia). Video completo:
 
 | | |
 |---|---|
-| **ISO 1.1.2** (amd64, 2,87 GB) | [DecodiumOS-1.1.2-2609131031-amd64.iso](https://community.ft2.it/downloads/decodiumos/DecodiumOS-1.1.2-2609131031-amd64.iso) |
-| **SHA-256** | `80dc46e67e89e5df8d36b79364560d0f2bbd51d56dbf94ee833cce92c08ecf9e` |
+| **ISO 1.2.0** (amd64, 2,88 GB) | [DecodiumOS-1.2.0-2609131836-amd64.iso](https://community.ft2.it/downloads/decodiumos/DecodiumOS-1.2.0-2609131836-amd64.iso) |
+| **SHA-256** | `5b6920a4424c23bfdb41566049b734c95ca5c8f9ce7870fe39e8e8e1a8c38b38` |
 | **Pagina ufficiale** | https://www.ft2.it/decodiumos/ |
 | **Note di rilascio** | [GitHub Releases](https://github.com/iu8lmc/DecodiumOS/releases/latest) |
+
+Hai già installato la 1.1.2? Non serve riscaricare la ISO: vedi
+[Aggiornamenti senza riscaricare la ISO](#aggiornamenti-senza-riscaricare-la-iso).
 
 La ISO è ospitata su ft2.it perché GitHub accetta file di al massimo 2 GB per
 release. Scrivila su una chiavetta con [balenaEtcher](https://etcher.balena.io/)
