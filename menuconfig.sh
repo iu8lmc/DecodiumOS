@@ -151,6 +151,8 @@ edit_ham() {
             "sets"     "Application sets      [$(get HAM_PACKAGE_SETS)]" \
             "decodium" "Decodium release     [$(get DECODIUM_VERSION)]" \
             "repo"     "Decodium GitHub repo  [$(get DECODIUM_REPO)]" \
+            "sdr"      "Decodium SDR release [$(get DECODIUM_SDR_VERSION)]" \
+            "qlog"     "QLog from its PPA     [$(get QLOG_INSTALL)]" \
             "back"     "< Back"
         case "$result" in
             sets)
@@ -175,6 +177,15 @@ edit_ham() {
             repo)
                 inputbox "Decodium Repository" "GitHub OWNER/NAME publishing the AppImages:" "$(get DECODIUM_REPO)" || continue
                 set_val DECODIUM_REPO "$result" ;;
+            sdr)
+                inputbox "Decodium SDR Release" "'latest', a release tag (e.g. v1.2.5), or empty to skip:" "$(get DECODIUM_SDR_VERSION)" || continue
+                set_val DECODIUM_SDR_VERSION "$result" ;;
+            qlog)
+                if [ "$(get QLOG_INSTALL)" = "yes" ]; then
+                    set_val QLOG_INSTALL "no"
+                else
+                    set_val QLOG_INSTALL "yes"
+                fi ;;
             back|"") return ;;
         esac
     done

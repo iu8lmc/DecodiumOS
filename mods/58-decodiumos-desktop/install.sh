@@ -16,7 +16,7 @@ PACKAGE="decodiumos-desktop"
 MAINTAINER="DecodiumOS <noreply@decodiumos.invalid>"
 
 depends=("decodiumos-base (>= $TARGET_BUILD_VERSION)" "decodiumos-branding (>= $TARGET_BUILD_VERSION)")
-for optional in decodium decodium-rx; do
+for optional in decodium decodium-rx decodium-sdr qlog; do
     if dpkg-query -W -f='${db:Status-Abbrev}' "$optional" 2>/dev/null | grep -q '^ii'; then
         depends+=("$optional")
     fi

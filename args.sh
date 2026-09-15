@@ -119,7 +119,7 @@ export TARGET_NAME="decodiumos"
 export TARGET_BUSINESS_NAME="DecodiumOS"
 
 # Version number. Must be in the format of x.y.z
-export TARGET_BUILD_VERSION="1.2.0"
+export TARGET_BUILD_VERSION="1.3.0"
 
 # Target CPU architecture.
 #   amd64 — Intel / AMD 64-bit
@@ -172,6 +172,17 @@ export HAM_PACKAGE_SETS="rig digital logging packet satellite sdr cw antenna too
 #   empty   — do not ship Decodium
 export DECODIUM_REPO="iu8lmc/Decodium-4.0-Core-Shannon"
 export DECODIUM_VERSION="latest"
+
+# Decodium SDR, same rules: GitHub releases of DECODIUM_SDR_REPO, installed
+# as the "decodium-sdr" package. Empty version = do not ship it.
+export DECODIUM_SDR_REPO="iu8lmc/decodium-sdr"
+export DECODIUM_SDR_VERSION="latest"
+
+# QLog (amateur radio logbook) from its author's Launchpad PPA
+# (ppa:foldyna/qlog): Ubuntu 26.04 itself does not carry it. The PPA key is
+# mods/50-decodiumos-base/rootfs/usr/share/keyrings/qlog-ppa-keyring.gpg and
+# an APT pin limits the PPA to the qlog package. "no" = do not ship QLog.
+export QLOG_INSTALL="yes"
 
 # DecodiumOS update repository: installed systems receive the decodiumos-*,
 # decodium and decodium-rx packages from here through apt / Software.

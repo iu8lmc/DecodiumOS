@@ -31,7 +31,7 @@ chmod 0644 "$KEYRING"
 
 echo "DecodiumOS: adding $URL..."
 cat > "$SOURCES" <<EOF
-# DecodiumOS updates: decodiumos-*, decodium and decodium-rx packages.
+# DecodiumOS updates: decodiumos-* packages, Decodium, Decodium RX, Decodium SDR and QLog.
 Types: deb
 URIs: $URL
 Suites: $SUITE

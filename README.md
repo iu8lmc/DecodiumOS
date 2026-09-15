@@ -36,6 +36,8 @@ firmware EFI.
 | Set (`HAM_PACKAGE_SETS`) | Applicazioni |
 |---|---|
 | — | **Decodium 4** (ultima release GitHub, verificata SHA-256) |
+| — | **Decodium SDR**: ricevitore SDR dell'ecosistema DECODIUM (RTL-SDR, HackRF e altri via SoapySDR, rtl_tcp, SpyServer, SDR++ Server), dall'AppImage ufficiale verificata SHA-256 |
+| — | **QLog**: logbook con LoTW, eQSL, Club Log, QRZ e controllo radio via Hamlib, dal PPA del suo autore (`ppa:foldyna/qlog`) |
 | `rig` | Hamlib (`rigctl`/`rigctld`), flrig, wfview |
 | `digital` | WSJT-X, JTDX, JS8Call, Fldigi, flmsg, flamp, QSSTV, FreeDV |
 | `logging` | TQSL (LoTW), KLog, Xlog, Tlf, Xdx |
@@ -102,13 +104,17 @@ Le decodifiche finiscono anche in `~/.local/share/decodium-rx/ALL.TXT`
 ## Aggiornamenti senza riscaricare la ISO
 
 I pacchetti DecodiumOS (`decodiumos-base`, `decodiumos-branding`,
-`decodium`, `decodium-rx` e il metapacchetto `decodiumos-desktop`) arrivano
-dal repository firmato https://community.ft2.it/downloads/decodiumos/apt/,
-già attivo dalla 1.2.0: gli aggiornamenti compaiono in **Software** oppure
-con `sudo apt update && sudo apt full-upgrade`.
+`decodium`, `decodium-rx`, `decodium-sdr`, una copia di `qlog` e il
+metapacchetto `decodiumos-desktop`) arrivano dal repository firmato
+https://community.ft2.it/downloads/decodiumos/apt/, già attivo dalla 1.2.0:
+gli aggiornamenti compaiono in **Software** (Aggiornamenti → Scarica →
+Riavvia e aggiorna) oppure con `sudo apt update && sudo apt full-upgrade`.
+Chi è sulla 1.2.0 riceve così anche Decodium SDR e QLog. Le versioni nuove
+di QLog arrivano poi direttamente dal PPA del suo autore, che
+`decodiumos-base` aggiunge limitato al solo pacchetto `qlog`.
 
 Chi ha installato la **1.1.2 o precedenti** lo attiva una volta sola e
-riceve subito tutte le novità (compreso Decodium RX):
+riceve subito tutte le novità (Decodium RX, Decodium SDR, QLog):
 
 ```bash
 wget -qO- https://community.ft2.it/downloads/decodiumos/apt/setup.sh | sudo sh
@@ -119,12 +125,14 @@ Chiave di firma: `CECB 3E8E 9357 207C 2819  B1B5 1CB3 EA7F F53B 1793`
 poi `tools/apt-repo/publish.sh dist/packages/<versione>-amd64` sull'host di
 build. Ogni versione pubblicata richiede un nuovo `TARGET_BUILD_VERSION`.
 
-Aggiornare Decodium su un sistema installato:
+Aggiornare Decodium o Decodium SDR a una release uscita dopo l'ultima
+pubblicazione del repository:
 
 ```bash
 decodiumos-update-decodium --check          # confronta installato/disponibile
-sudo decodiumos-update-decodium             # installa l'ultima release
+sudo decodiumos-update-decodium             # Decodium 4, ultima release
 sudo decodiumos-update-decodium --version v1.0.627
+sudo decodiumos-update-decodium --app decodium-sdr   # Decodium SDR
 ```
 
 ## Compilare la ISO
@@ -162,11 +170,13 @@ dentro un chroot e crea la SquashFS Live e la ISO:
 | `52-decodium` | DecodiumOS | Decodium dall'AppImage ufficiale, come pacchetto `decodium` |
 | `53-decodiumos-branding` | DecodiumOS | pacchetto `decodiumos-branding`: grafica e rebrand |
 | `54-decodium-rx` | DecodiumOS | compila il core di Decodium 4 dai sorgenti, lo prova su segnali FT8/FT4/FT2 simulati e crea `decodium-rx`; poi elimina compilatori e pacchetti `-dev` |
-| `55-decodiumos-desktop` | DecodiumOS | metapacchetto `decodiumos-desktop` che dipende da tutti i componenti della release |
+| `55-decodium-sdr` | DecodiumOS | Decodium SDR dall'AppImage ufficiale, come pacchetto `decodium-sdr` |
+| `56-qlog` | DecodiumOS | QLog dal PPA del suo autore, più una copia per il repository degli aggiornamenti |
+| `58-decodiumos-desktop` | DecodiumOS | metapacchetto `decodiumos-desktop` che dipende da tutti i componenti della release |
+| `80`–`85` | AnduinOS | initramfs Live, locale, rete, pulizia |
 
 I pacchetti costruiti dai mod finiscono anche in `dist/packages/<versione>-<arch>/`
 per il repository degli aggiornamenti (`tools/apt-repo/publish.sh`).
-| `80`–`85` | AnduinOS | initramfs Live, locale, rete, pulizia |
 
 Aggiungere un programma: una riga in `mods/51-hamradio-apps/sets/<set>.list`.
 I pacchetti che non esistono per la release/architettura, o che si

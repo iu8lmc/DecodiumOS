@@ -72,7 +72,7 @@ judge "Generate distribution identity files"
 print_ok "Adding the DecodiumOS update repository..."
 install -d -m 0755 "$STAGE/etc/apt/sources.list.d"
 cat > "$STAGE/etc/apt/sources.list.d/decodiumos.sources" <<EOF
-# DecodiumOS updates: decodiumos-*, decodium and decodium-rx packages.
+# DecodiumOS updates: decodiumos-* packages, Decodium, Decodium RX, Decodium SDR and QLog.
 Types: deb
 URIs: $DECODIUMOS_APT_URL
 Suites: $DECODIUMOS_APT_SUITE
@@ -82,6 +82,38 @@ Signed-By: /usr/share/keyrings/decodiumos-archive-keyring.gpg
 EOF
 chmod 0644 "$STAGE/usr/share/keyrings/decodiumos-archive-keyring.gpg"
 judge "Add the DecodiumOS update repository"
+
+# QLog is not in Ubuntu $TARGET_UBUNTU_VERSION: its author publishes it in a PPA.
+# The pin lets that PPA provide qlog (and anything qlog alone needs) but
+# never replace an Ubuntu package.
+if [ "${QLOG_INSTALL:-no}" = "yes" ]; then
+    print_ok "Adding the QLog PPA (qlog only)..."
+    cat > "$STAGE/etc/apt/sources.list.d/qlog-ppa.sources" <<EOF
+# QLog, the amateur radio logbook, from its author's PPA (ppa:foldyna/qlog).
+# Pinned in /etc/apt/preferences.d/decodiumos-qlog-ppa to the qlog package.
+Types: deb
+URIs: https://ppa.launchpadcontent.net/foldyna/qlog/ubuntu/
+Suites: $TARGET_UBUNTU_VERSION
+Components: main
+Architectures: $TARGET_ARCH
+Signed-By: /usr/share/keyrings/qlog-ppa-keyring.gpg
+EOF
+    install -d -m 0755 "$STAGE/etc/apt/preferences.d"
+    cat > "$STAGE/etc/apt/preferences.d/decodiumos-qlog-ppa" <<EOF
+# The QLog PPA may only provide QLog: everything else keeps coming from Ubuntu.
+Package: *
+Pin: release o=LP-PPA-foldyna-qlog
+Pin-Priority: 1
+
+Package: qlog
+Pin: release o=LP-PPA-foldyna-qlog
+Pin-Priority: 500
+EOF
+    chmod 0644 "$STAGE/usr/share/keyrings/qlog-ppa-keyring.gpg"
+    judge "Add the QLog PPA"
+else
+    rm -f "$STAGE/usr/share/keyrings/qlog-ppa-keyring.gpg"
+fi
 
 print_ok "Writing $PACKAGE control file..."
 installed_size=$(du -sk --exclude=DEBIAN "$STAGE" | cut -f1)
@@ -100,8 +132,8 @@ Description: $TARGET_BUSINESS_NAME identity and radio station integration
  plus the system integration an amateur radio station needs: desktop access
  to CAT/PTT serial ports, ModemManager exclusion for radio interfaces,
  dialout membership for local users, tighter NTP polling for FT8/FT4/FT2,
- a Ham Radio application folder, the Decodium updater and the
- $TARGET_BUSINESS_NAME update repository.
+ a Ham Radio application folder, the Decodium and Decodium SDR updater,
+ the $TARGET_BUSINESS_NAME update repository and the QLog PPA.
 EOF
 judge "Write $PACKAGE control file"
 
