@@ -52,6 +52,9 @@ APPS = {
         "command": "decodium-sdr",
         "desktop": "it.decodium.sdr.desktop",
         "icon_prefix": "it.decodium.sdr",
+        # The X11 window is WM_CLASS "decodium-sdr", which the desktop file
+        # name does not reveal: without this the taskbar shows a generic icon.
+        "wm_class": "decodium-sdr",
         "summary": "universal SDR receiver of the DECODIUM ecosystem",
     },
 }
@@ -210,6 +213,11 @@ def stage_package(appimage, workdir, *, app, package, version, deb_arch, repo, r
         fail("the AppImage ships no .desktop file")
     with open(os.path.join(appdir, desktop_sources[0]), encoding="utf-8") as handle:
         entry = [line for line in handle.read().splitlines() if not line.startswith("X-AppImage-")]
+    wm_class = app.get("wm_class")
+    if wm_class and not any(line.startswith("StartupWMClass=") for line in entry):
+        if "[Desktop Entry]" not in entry:
+            fail("the AppImage .desktop file has no [Desktop Entry] group")
+        entry.insert(entry.index("[Desktop Entry]") + 1, f"StartupWMClass={wm_class}")
     applications = os.path.join(root, "usr/share/applications")
     os.makedirs(applications)
     with open(os.path.join(applications, app["desktop"]), "w", encoding="utf-8") as handle:
