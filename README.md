@@ -18,12 +18,12 @@ software (anteprima a velocità doppia). Video completo:
 
 | | |
 |---|---|
-| **ISO 1.2.0** (amd64, 2,88 GB) | [DecodiumOS-1.2.0-2609131836-amd64.iso](https://community.ft2.it/downloads/decodiumos/DecodiumOS-1.2.0-2609131836-amd64.iso) |
-| **SHA-256** | `5b6920a4424c23bfdb41566049b734c95ca5c8f9ce7870fe39e8e8e1a8c38b38` |
+| **ISO 1.3.0** (amd64, 3,03 GB) | [DecodiumOS-1.3.0-2609151537-amd64.iso](https://community.ft2.it/downloads/decodiumos/DecodiumOS-1.3.0-2609151537-amd64.iso) |
+| **SHA-256** | `22f09af38f6de5bc84a6cfd2256e6017e9945a805cab5394280915b1fb9b1700` |
 | **Pagina ufficiale** | https://www.ft2.it/decodiumos/ |
 | **Note di rilascio** | [GitHub Releases](https://github.com/iu8lmc/DecodiumOS/releases/latest) |
 
-Hai già installato la 1.1.2? Non serve riscaricare la ISO: vedi
+Hai già installato una versione precedente? Non serve riscaricare la ISO: vedi
 [Aggiornamenti senza riscaricare la ISO](#aggiornamenti-senza-riscaricare-la-iso).
 
 La ISO è ospitata su ft2.it perché GitHub accetta file di al massimo 2 GB per
@@ -109,7 +109,7 @@ metapacchetto `decodiumos-desktop`) arrivano dal repository firmato
 https://community.ft2.it/downloads/decodiumos/apt/, già attivo dalla 1.2.0:
 gli aggiornamenti compaiono in **Software** (Aggiornamenti → Scarica →
 Riavvia e aggiorna) oppure con `sudo apt update && sudo apt full-upgrade`.
-Chi è sulla 1.2.0 riceve così anche Decodium SDR e QLog. Le versioni nuove
+Chi è sulla 1.2.0 riceve così la 1.3.0, Decodium SDR e QLog compresi. Le versioni nuove
 di QLog arrivano poi direttamente dal PPA del suo autore, che
 `decodiumos-base` aggiunge limitato al solo pacchetto `qlog`.
 
