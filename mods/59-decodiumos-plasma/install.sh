@@ -72,7 +72,8 @@ install -d -m 0755 "$STAGE/DEBIAN"
 install -m 0755 "$MOD_DIR/DEBIAN/postinst" "$MOD_DIR/DEBIAN/postrm" "$STAGE/DEBIAN/"
 chmod 0755 \
     "$STAGE/usr/libexec/decodiumos/plasma-first-run" \
-    "$STAGE/usr/libexec/decodiumos/plasma-default-session"
+    "$STAGE/usr/libexec/decodiumos/plasma-default-session" \
+    "$STAGE/usr/libexec/decodiumos/plasma-live-installer"
 install -d -m 0755 "$STAGE/usr/share/doc/$PACKAGE"
 cat > "$STAGE/usr/share/doc/$PACKAGE/README" <<EOF
 $TARGET_BUSINESS_NAME $TARGET_BUILD_VERSION - Plasma edition

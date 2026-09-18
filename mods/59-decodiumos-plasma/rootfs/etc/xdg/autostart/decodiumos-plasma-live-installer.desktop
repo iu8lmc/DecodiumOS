@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=DecodiumOS Installer (Live session)
+Comment=Opens the installer when Plasma starts in the Live session
+Exec=/usr/libexec/decodiumos/plasma-live-installer
+OnlyShowIn=KDE;
+X-KDE-autostart-phase=2
+NoDisplay=true

@@ -1,0 +1,11 @@
+#!/bin/sh
+# Open the installer at the start of a Live session, the way the GNOME
+# edition does with its desktop shortcut. Plasma has no desktop icons by
+# default, so the window itself is the shortcut.
+#
+# An installed system never boots with boot=casper, so nothing happens there.
+set -eu
+
+grep -q 'boot=casper' /proc/cmdline || exit 0
+[ -x /usr/bin/anduinos-installer-beta ] || exit 0
+exec /usr/bin/anduinos-installer-beta
