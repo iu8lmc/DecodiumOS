@@ -25,10 +25,16 @@ apt-get update
 judge "Refresh package lists"
 
 print_ok "Checking where qlog comes from..."
-apt-cache policy qlog
-candidate=$(apt-cache policy qlog | awk '/Candidate:/ {print $2}')
+# No "apt-cache policy | grep -q": grep leaves as soon as it matches, apt-cache
+# dies of SIGPIPE and "set -o pipefail" would fail the build for nothing.
+policy=$(apt-cache policy qlog)
+echo "$policy"
+candidate=$(echo "$policy" | awk '/Candidate:/ {print $2}')
 [ -n "$candidate" ] && [ "$candidate" != "(none)" ]
-apt-cache policy qlog | grep -q 'ppa.launchpadcontent.net/foldyna/qlog'
+case "$policy" in
+    *ppa.launchpadcontent.net/foldyna/qlog*) ;;
+    *) print_error "The QLog PPA does not offer qlog"; exit 1 ;;
+esac
 judge "qlog $candidate available from the QLog PPA"
 
 print_ok "Installing QLog $candidate..."

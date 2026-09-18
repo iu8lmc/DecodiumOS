@@ -56,7 +56,11 @@ systemctl disable sddm.service > /dev/null 2>&1 || true
 systemctl mask sddm.service > /dev/null 2>&1 || true
 test "$(cat /etc/X11/default-display-manager)" = "/usr/sbin/gdm3"
 # gdm3.service is itself a link to gdm.service, so match the name loosely.
-readlink -f /etc/systemd/system/display-manager.service | grep -q 'gdm.*\.service'
+dm_unit=$(readlink -f /etc/systemd/system/display-manager.service)
+case "$dm_unit" in
+    *gdm*.service) ;;
+    *) print_error "The display manager is $dm_unit, not GDM"; exit 1 ;;
+esac
 test -f /usr/share/wayland-sessions/plasma.desktop
 ls /usr/share/xsessions/ 2>/dev/null || print_warn "No X11 session in the image."
 judge "Verify the display manager and the Plasma session"
