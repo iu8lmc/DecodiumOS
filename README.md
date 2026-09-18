@@ -16,10 +16,17 @@ software (anteprima a velocità doppia). Video completo:
 
 ## Download
 
+DecodiumOS 1.4.0 esce in due edizioni: **GNOME**, il desktop classico, e
+**Plasma**, con il desktop KDE completo. Stesse applicazioni radio, stesso
+installer, stessi aggiornamenti; cambia solo il desktop.
+
+| Edizione | ISO (amd64) | SHA-256 |
+|---|---|---|
+| **GNOME** (3,03 GB) | [DecodiumOS-1.4.0-gnome-2609181647-amd64.iso](https://community.ft2.it/downloads/decodiumos/DecodiumOS-1.4.0-gnome-2609181647-amd64.iso) | `be405b76d583c9daab799e8dc3b8be151b6f3477cd97221d326e567d75d42b44` |
+| **Plasma** (3,54 GB) | [DecodiumOS-1.4.0-plasma-2609181918-amd64.iso](https://community.ft2.it/downloads/decodiumos/DecodiumOS-1.4.0-plasma-2609181918-amd64.iso) | `b4a649138465161e77d2c0fec9913b2d795090ed5a39014e114664afd1993fa7` |
+
 | | |
 |---|---|
-| **ISO 1.3.0** (amd64, 3,03 GB) | [DecodiumOS-1.3.0-2609151537-amd64.iso](https://community.ft2.it/downloads/decodiumos/DecodiumOS-1.3.0-2609151537-amd64.iso) |
-| **SHA-256** | `22f09af38f6de5bc84a6cfd2256e6017e9945a805cab5394280915b1fb9b1700` |
 | **Pagina ufficiale** | https://www.ft2.it/decodiumos/ |
 | **Note di rilascio** | [GitHub Releases](https://github.com/iu8lmc/DecodiumOS/releases/latest) |
 
