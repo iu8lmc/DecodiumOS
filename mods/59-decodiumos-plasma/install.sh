@@ -42,13 +42,23 @@ print_ok "Installing the Plasma desktop ($PLASMA_SET)..."
 apt-get install -y "$PLASMA_SET"
 judge "Install $PLASMA_SET"
 
+# The image is a Wayland-only system, like the classic edition. Old graphics
+# cards and some virtual machines still do better on X11, so the X11 session
+# is added as a second choice at the login screen when it exists.
+print_ok "Adding the Plasma session on X11 (fallback for old graphics)..."
+if ! apt-get install -y plasma-session-x11 kwin-x11; then
+    print_warn "No Plasma X11 session available: the Wayland session is the only one."
+fi
+judge "Add the Plasma session on X11"
+
 print_ok "Checking the display manager and the Plasma session..."
 systemctl disable sddm.service > /dev/null 2>&1 || true
 systemctl mask sddm.service > /dev/null 2>&1 || true
 test "$(cat /etc/X11/default-display-manager)" = "/usr/sbin/gdm3"
-readlink -f /etc/systemd/system/display-manager.service | grep -q gdm3
+# gdm3.service is itself a link to gdm.service, so match the name loosely.
+readlink -f /etc/systemd/system/display-manager.service | grep -q 'gdm.*\.service'
 test -f /usr/share/wayland-sessions/plasma.desktop
-test -f /usr/share/xsessions/plasmax11.desktop
+ls /usr/share/xsessions/ 2>/dev/null || print_warn "No X11 session in the image."
 judge "Verify the display manager and the Plasma session"
 
 umask 022
