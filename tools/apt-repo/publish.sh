@@ -37,8 +37,16 @@ for dir in "$@"; do
         dest="$LOCAL/pool/main/${pkg:0:1}/$pkg"
         mkdir -p "$dest"
         if [ -e "$dest/$(basename "$deb")" ] && ! cmp -s "$deb" "$dest/$(basename "$deb")"; then
+            # Two builds of the same upstream version never produce two
+            # identical .deb files (time stamps alone differ), so this also
+            # fires when nothing really changed. It still refuses by default:
+            # the published version must keep the content people downloaded.
+            if [ -n "${DECODIUMOS_APT_KEEP_PUBLISHED:-}" ]; then
+                echo "publish: keeping the published $(basename "$deb"); the new build of the same version is ignored" >&2
+                continue
+            fi
             echo "publish: $(basename "$deb") already published with different content;" \
-                 "bump TARGET_BUILD_VERSION instead of republishing a version" >&2
+                 "bump the version, or set DECODIUMOS_APT_KEEP_PUBLISHED=1 if only the build differs" >&2
             exit 1
         fi
         cp -p "$deb" "$dest/"
