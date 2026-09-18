@@ -1,0 +1,28 @@
+#!/bin/sh
+# Give a new Plasma session the DecodiumOS look, once per user.
+#
+# Plasma writes its appearance into the user's own configuration the first
+# time it starts, so this cannot be shipped as a system default file without
+# fighting the packages that own /etc/xdg/kdeglobals. Instead the supported
+# command line tools are used at the first login of each user; the marker
+# file keeps later choices of the user untouched.
+set -eu
+
+MARKER="${XDG_DATA_HOME:-$HOME/.local/share}/decodiumos/plasma-look-applied"
+WALLPAPER=/usr/share/backgrounds/decodiumos/decodiumos-dark.png
+
+[ -e "$MARKER" ] && exit 0
+
+apply() {
+    command -v "$1" >/dev/null 2>&1 || return 0
+    "$@" >/dev/null 2>&1 || echo "decodiumos-plasma: $1 failed" >&2
+}
+
+# Order matters: the global theme resets colours and desktop theme.
+apply plasma-apply-lookandfeel --apply org.kde.breezedark.desktop
+apply plasma-apply-desktoptheme breeze-dark
+apply plasma-apply-colorscheme DecodiumOcean
+[ -f "$WALLPAPER" ] && apply plasma-apply-wallpaperimage "$WALLPAPER"
+
+mkdir -p "$(dirname "$MARKER")"
+: > "$MARKER"

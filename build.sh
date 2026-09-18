@@ -12,6 +12,18 @@ export SCRIPT_DIR
 source "$SCRIPT_DIR/shared.sh"
 source "$SCRIPT_DIR/args.sh"
 
+# DecodiumOS: the desktop edition (gnome or plasma) is part of the image name,
+# so the two editions of a release can sit next to each other.
+EDITION="${DECODIUMOS_EDITION:-gnome}"
+case "$EDITION" in
+    gnome|plasma) ;;
+    *)
+        print_error "Unsupported DECODIUMOS_EDITION: $EDITION (use gnome or plasma)"
+        exit 1
+        ;;
+esac
+IMAGE_NAME="$TARGET_BUSINESS_NAME-$TARGET_BUILD_VERSION-$EDITION"
+
 # Map Debian arch name to GRUB target name (amd64 -> x86_64, arm64 -> arm64)
 case "$TARGET_ARCH" in
     amd64) GRUB_EFI_TARGET="x86_64-efi" ;;
@@ -466,7 +478,7 @@ EOF
     fi
 
     print_ok "Creating .disk/info..."
-    echo "$TARGET_BUSINESS_NAME $TARGET_BUILD_VERSION $TARGET_UBUNTU_VERSION - Release $TARGET_ARCH ($(date +%Y%m%d))" | sudo tee .disk/info
+    echo "$TARGET_BUSINESS_NAME $TARGET_BUILD_VERSION $EDITION $TARGET_UBUNTU_VERSION - Release $TARGET_ARCH ($(date +%Y%m%d))" | sudo tee .disk/info
     judge "Create .disk/info"
 
     print_ok "Creating md5sum.txt..."
@@ -527,14 +539,14 @@ EOF
 
     judge "Create iso image"
 
-    print_ok "Moving iso image to $SCRIPT_DIR/dist/$TARGET_BUSINESS_NAME-$TARGET_BUILD_VERSION-$DATE.iso..."
+    print_ok "Moving iso image to $SCRIPT_DIR/dist/$IMAGE_NAME-$DATE-$TARGET_ARCH.iso..."
     mkdir -p "$SCRIPT_DIR/dist"
-    mv "$SCRIPT_DIR/$TARGET_NAME.iso" "$SCRIPT_DIR/dist/$TARGET_BUSINESS_NAME-$TARGET_BUILD_VERSION-$DATE-$TARGET_ARCH.iso"
+    mv "$SCRIPT_DIR/$TARGET_NAME.iso" "$SCRIPT_DIR/dist/$IMAGE_NAME-$DATE-$TARGET_ARCH.iso"
     judge "Move iso image"
 
     print_ok "Generating sha256 checksum..."
-    HASH=$(sha256sum "$SCRIPT_DIR/dist/$TARGET_BUSINESS_NAME-$TARGET_BUILD_VERSION-$DATE-$TARGET_ARCH.iso" | cut -d ' ' -f 1)
-    echo "SHA256: $HASH" > "$SCRIPT_DIR/dist/$TARGET_BUSINESS_NAME-$TARGET_BUILD_VERSION-$DATE-$TARGET_ARCH.sha256"
+    HASH=$(sha256sum "$SCRIPT_DIR/dist/$IMAGE_NAME-$DATE-$TARGET_ARCH.iso" | cut -d ' ' -f 1)
+    echo "SHA256: $HASH" > "$SCRIPT_DIR/dist/$IMAGE_NAME-$DATE-$TARGET_ARCH.sha256"
     judge "Generate sha256 checksum"
 
     popd
@@ -554,11 +566,21 @@ function umount_on_exit() {
 # /var/cache/decodiumos-debs (kept out of the SquashFS); collect them for
 # the update repository (tools/apt-repo/publish.sh).
 function collect_decodiumos_packages() {
-    local out="$SCRIPT_DIR/dist/packages/$TARGET_BUILD_VERSION-$TARGET_ARCH"
+    local out="$SCRIPT_DIR/dist/packages/$TARGET_BUILD_VERSION-$EDITION-$TARGET_ARCH"
     print_ok "Collecting DecodiumOS packages in $out..."
     rm -rf "$out"
     mkdir -p "$out"
-    cp new_building_os/var/cache/decodiumos-debs/*.deb "$out/"
+    if [ "$EDITION" = "gnome" ]; then
+        cp new_building_os/var/cache/decodiumos-debs/*.deb "$out/"
+    else
+        # Both editions build the shared packages (decodiumos-base, decodium,
+        # qlog...) from the same sources, but two builds never produce two
+        # byte-identical .deb files, and the update repository refuses to
+        # republish a version with different content. Only the packages that
+        # this edition alone builds are collected; the rest comes from the
+        # gnome build of the same version.
+        cp new_building_os/var/cache/decodiumos-debs/decodiumos-"$EDITION"_*.deb "$out/"
+    fi
     ls -1 "$out"
     judge "Collect DecodiumOS packages"
 }

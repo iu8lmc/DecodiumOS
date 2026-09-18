@@ -1,0 +1,40 @@
+#!/bin/sh
+# Make Plasma the session the display manager offers by default.
+#
+# GDM takes the session of each account from AccountsService. A new account
+# (the one the installer creates, or the Live session user) has no entry yet,
+# so it would land in the GNOME session. This writes the entry for accounts
+# that do not have one and never touches an account that already chose a
+# session: picking GNOME at the login screen stays a lasting choice.
+set -eu
+
+SESSION=plasma
+DIR=/var/lib/AccountsService/users
+
+[ -f "/usr/share/wayland-sessions/$SESSION.desktop" ] ||
+    [ -f "/usr/share/xsessions/$SESSION.desktop" ] || exit 0
+
+mkdir -p "$DIR"
+while IFS=: read -r name _ uid _ _ _ shell; do
+    case "$uid" in
+        '' | *[!0-9]*) continue ;;
+    esac
+    [ "$uid" -ge 1000 ] && [ "$uid" -lt 60000 ] || continue
+    case "$shell" in
+        '' | */nologin | */false) continue ;;
+    esac
+    file="$DIR/$name"
+    if [ -e "$file" ]; then
+        grep -qE '^(X?Session)=' "$file" && continue
+        printf 'Session=%s\nXSession=%s\n' "$SESSION" "$SESSION" >> "$file"
+    else
+        cat > "$file" <<EOF
+[User]
+Session=$SESSION
+XSession=$SESSION
+SystemAccount=false
+EOF
+        chmod 0600 "$file"
+    fi
+    echo "Default session of $name set to $SESSION"
+done < /etc/passwd

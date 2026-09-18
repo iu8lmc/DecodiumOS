@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=DecodiumOS look for Plasma
+Comment=Applies the DecodiumOS colours and wallpaper at the first Plasma login
+Exec=/usr/libexec/decodiumos/plasma-first-run
+OnlyShowIn=KDE;
+X-KDE-autostart-phase=2
+NoDisplay=true

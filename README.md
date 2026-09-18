@@ -101,6 +101,34 @@ rtl_fm -M usb -f 144.174M -s 12k - | decodium-rx -m ft8 -s stdin
 Le decodifiche finiscono anche in `~/.local/share/decodium-rx/ALL.TXT`
 (formato WSJT-X). Nel menu c'è "Decodium RX (terminale)".
 
+## Due edizioni: GNOME e Plasma
+
+DecodiumOS esce in due edizioni con lo stesso contenuto radio (Decodium,
+Decodium RX, Decodium SDR, QLog e tutti i set di applicazioni):
+
+| Edizione | Desktop |
+|---|---|
+| **GNOME** (classica) | il desktop AnduinOS in stile Windows, come finora |
+| **Plasma** | in più il desktop KDE Plasma completo (`kde-standard`: Dolphin, Konsole, Kate, Discover), che diventa la sessione predefinita |
+
+Nell'edizione Plasma la sessione Live, l'installer e gli aggiornamenti sono
+gli stessi della classica, e il desktop GNOME resta installato: dalla
+schermata di accesso si sceglie la sessione una volta e la scelta viene
+ricordata. I colori di Decodium ("Decodium Ocean Blue") e lo sfondo vengono
+applicati al primo accesso in Plasma di ogni utente.
+
+Non serve reinstallare per cambiare: su un DecodiumOS classico basta
+
+```bash
+sudo apt install decodiumos-plasma     # aggiunge Plasma e lo rende predefinito
+sudo apt purge decodiumos-plasma       # torna a GNOME come sessione predefinita
+```
+
+Per compilare l'una o l'altra si cambia `DECODIUMOS_EDITION` in `args.sh`
+(`gnome` o `plasma`), oppure la voce "Desktop edition" di `make menuconfig`.
+Il nome della ISO contiene l'edizione. Compila prima la GNOME: è quella che
+pubblica i pacchetti comuni alle due edizioni.
+
 ## Aggiornamenti senza riscaricare la ISO
 
 I pacchetti DecodiumOS (`decodiumos-base`, `decodiumos-branding`,
@@ -173,6 +201,7 @@ dentro un chroot e crea la SquashFS Live e la ISO:
 | `55-decodium-sdr` | DecodiumOS | Decodium SDR dall'AppImage ufficiale, come pacchetto `decodium-sdr` |
 | `56-qlog` | DecodiumOS | QLog dal PPA del suo autore, più una copia per il repository degli aggiornamenti |
 | `58-decodiumos-desktop` | DecodiumOS | metapacchetto `decodiumos-desktop` che dipende da tutti i componenti della release |
+| `59-decodiumos-plasma` | DecodiumOS | solo edizione Plasma: installa il desktop KDE e crea il pacchetto `decodiumos-plasma` |
 | `80`–`85` | AnduinOS | initramfs Live, locale, rete, pulizia |
 
 I pacchetti costruiti dai mod finiscono anche in `dist/packages/<versione>-<arch>/`

@@ -1,0 +1,37 @@
+#!/bin/sh
+set -e
+
+UNIT=decodiumos-plasma-session.service
+
+# The image build bind-mounts the host /run into its chroot, so
+# /run/systemd/system alone does not prove we manage a running system.
+running_system() {
+    [ -d /run/systemd/system ] || return 1
+    if command -v systemd-detect-virt >/dev/null 2>&1 &&
+       systemd-detect-virt --quiet --chroot >/dev/null 2>&1; then
+        return 1
+    fi
+    if command -v ischroot >/dev/null 2>&1 && ischroot >/dev/null 2>&1; then
+        return 1
+    fi
+    return 0
+}
+
+if [ "$1" = configure ] || [ "$1" = abort-upgrade ] || \
+   [ "$1" = abort-deconfigure ] || [ "$1" = abort-remove ]; then
+    deb-systemd-helper unmask "$UNIT" >/dev/null || true
+    if deb-systemd-helper --quiet was-enabled "$UNIT"; then
+        deb-systemd-helper enable "$UNIT" >/dev/null || true
+    else
+        deb-systemd-helper update-state "$UNIT" >/dev/null || true
+    fi
+fi
+
+if [ "$1" = configure ]; then
+    # Accounts that exist already get the Plasma session now, not at the
+    # next boot; the script leaves accounts that chose a session alone.
+    /usr/libexec/decodiumos/plasma-default-session || true
+    if running_system; then
+        systemctl --system daemon-reload >/dev/null || true
+    fi
+fi

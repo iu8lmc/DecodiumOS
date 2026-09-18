@@ -119,7 +119,7 @@ export TARGET_NAME="decodiumos"
 export TARGET_BUSINESS_NAME="DecodiumOS"
 
 # Version number. Must be in the format of x.y.z
-export TARGET_BUILD_VERSION="1.3.0"
+export TARGET_BUILD_VERSION="1.4.0"
 
 # Target CPU architecture.
 #   amd64 — Intel / AMD 64-bit
@@ -177,6 +177,21 @@ export DECODIUM_VERSION="latest"
 # as the "decodium-sdr" package. Empty version = do not ship it.
 export DECODIUM_SDR_REPO="iu8lmc/decodium-sdr"
 export DECODIUM_SDR_VERSION="latest"
+
+# Desktop edition of the image:
+#   gnome   the classic DecodiumOS desktop (AnduinOS/GNOME)
+#   plasma  the same system plus a complete KDE Plasma desktop, which becomes
+#           the default session; the GNOME session stays available at login
+# The edition ends up in the ISO name, so both can be built and published
+# side by side. Build the gnome edition first: it publishes the packages the
+# plasma edition shares with it.
+export DECODIUMOS_EDITION="gnome"
+
+# Packages that make up the Plasma desktop (plasma edition only).
+#   kde-plasma-desktop  the desktop alone
+#   kde-standard        desktop plus the main KDE applications (default)
+#   kde-full            every KDE application
+export PLASMA_PACKAGE_SET="kde-standard"
 
 # QLog (amateur radio logbook) from its author's Launchpad PPA
 # (ppa:foldyna/qlog): Ubuntu 26.04 itself does not carry it. The PPA key is

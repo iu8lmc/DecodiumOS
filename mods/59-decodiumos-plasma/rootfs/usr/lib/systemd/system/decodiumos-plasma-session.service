@@ -1,0 +1,11 @@
+[Unit]
+Description=Offer the Plasma session by default to local users
+After=local-fs.target
+Before=systemd-user-sessions.service display-manager.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/decodiumos/plasma-default-session
+
+[Install]
+WantedBy=multi-user.target

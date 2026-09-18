@@ -153,6 +153,8 @@ edit_ham() {
             "repo"     "Decodium GitHub repo  [$(get DECODIUM_REPO)]" \
             "sdr"      "Decodium SDR release [$(get DECODIUM_SDR_VERSION)]" \
             "qlog"     "QLog from its PPA     [$(get QLOG_INSTALL)]" \
+            "edition"  "Desktop edition      [$(get DECODIUMOS_EDITION)]" \
+            "plasma"   "Plasma packages      [$(get PLASMA_PACKAGE_SET)]" \
             "back"     "< Back"
         case "$result" in
             sets)
@@ -186,6 +188,15 @@ edit_ham() {
                 else
                     set_val QLOG_INSTALL "yes"
                 fi ;;
+            edition)
+                if [ "$(get DECODIUMOS_EDITION)" = "plasma" ]; then
+                    set_val DECODIUMOS_EDITION "gnome"
+                else
+                    set_val DECODIUMOS_EDITION "plasma"
+                fi ;;
+            plasma)
+                inputbox "Plasma Packages" "kde-plasma-desktop, kde-standard or kde-full (plasma edition only):" "$(get PLASMA_PACKAGE_SET)" || continue
+                set_val PLASMA_PACKAGE_SET "$result" ;;
             back|"") return ;;
         esac
     done

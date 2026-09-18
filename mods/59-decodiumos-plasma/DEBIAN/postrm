@@ -1,0 +1,13 @@
+#!/bin/sh
+set -e
+
+UNIT=decodiumos-plasma-session.service
+
+if [ "$1" = remove ]; then
+    deb-systemd-helper mask "$UNIT" >/dev/null || true
+fi
+
+if [ "$1" = purge ]; then
+    deb-systemd-helper purge "$UNIT" >/dev/null || true
+    deb-systemd-helper unmask "$UNIT" >/dev/null || true
+fi
