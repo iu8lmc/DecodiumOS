@@ -185,7 +185,8 @@ export DECODIUM_SDR_VERSION="latest"
 # The edition ends up in the ISO name, so both can be built and published
 # side by side. Build the gnome edition first: it publishes the packages the
 # plasma edition shares with it.
-export DECODIUMOS_EDITION="gnome"
+# Override on the command line:  DECODIUMOS_EDITION=plasma ./build.sh
+export DECODIUMOS_EDITION="${DECODIUMOS_EDITION:-gnome}"
 
 # Packages that make up the Plasma desktop (plasma edition only).
 #   kde-plasma-desktop  the desktop alone
