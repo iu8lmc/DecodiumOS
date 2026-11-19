@@ -1,0 +1,225 @@
+#!/bin/bash
+# decodium-ai - CLI wrapper for the local LLM AI agent
+# Usage: decodium-ai [options] "prompt"
+#        echo "prompt" | decodium-ai [options]
+
+set -euo pipefail
+
+INSTALL_DIR="/usr/lib/decodium-ai"
+MODEL_CONF="${INSTALL_DIR}/model.conf"
+LLAMA_CLI="${INSTALL_DIR}/llama-cli"
+LLAMA_SERVER="${INSTALL_DIR}/llama-server"
+MCP_SERVER="${INSTALL_DIR}/mcp-server.py"
+
+# Default model settings (overridden by model.conf)
+MODEL_PATH="${INSTALL_DIR}/models/qwen2.5-3b-instruct-q4_k_m.gguf"
+CONTEXT_SIZE=4096
+THREADS=$(nproc)
+TEMP=0.7
+TOP_P=0.9
+TOP_K=40
+REPEAT_PENALTY=1.1
+N_PREDICT=512
+
+# Load model config if exists
+if [ -f "$MODEL_CONF" ]; then
+    # shellcheck source=/dev/null
+    source "$MODEL_CONF"
+fi
+
+# Verify model exists
+if [ ! -f "$MODEL_PATH" ]; then
+    echo "Error: Model not found at $MODEL_PATH" >&2
+    echo "Run: decodium-ai-download-model" >&2
+    exit 1
+fi
+
+# Verify llama-cli exists
+if [ ! -x "$LLAMA_CLI" ]; then
+    echo "Error: llama-cli not found at $LLAMA_CLI" >&2
+    exit 1
+fi
+
+show_help() {
+    cat <<EOF
+decodium-ai - Local LLM AI agent for DecodiumOS
+
+Usage:
+    decodium-ai [OPTIONS] "prompt"
+    echo "prompt" | decodium-ai [OPTIONS]
+
+Options:
+    -m, --model PATH       Model file path (default: from model.conf)
+    -c, --ctx SIZE         Context size in tokens (default: $CONTEXT_SIZE)
+    -t, --threads N        Number of threads (default: $THREADS)
+    --temp VALUE           Temperature (default: $TEMP)
+    --top-p VALUE          Top-p sampling (default: $TOP_P)
+    --top-k VALUE          Top-k sampling (default: $TOP_K)
+    -n, --max-tokens N     Max tokens to generate (default: $N_PREDICT)
+    -r, --repeat-penalty V Repeat penalty (default: $REPEAT_PENALTY)
+    -s, --system PROMPT    System prompt
+    -i, --interactive      Interactive chat mode
+    --server               Start llama-server (OpenAI-compatible API)
+    --server-port PORT     Port for server mode (default: 8080)
+    --mcp                  Start MCP server (stdio transport)
+    -h, --help             Show this help
+
+Environment:
+    DECODIUM_AI_MODEL      Override model path
+    DECODIUM_AI_CTX        Override context size
+    DECODIUM_AI_THREADS    Override thread count
+
+Examples:
+    decodium-ai "What is FT8?"
+    decodium-ai --interactive
+    decodium-ai --server --server-port 8080
+    decodium-ai --mcp
+    echo "Decode this callsign" | decodium-ai
+EOF
+}
+
+# Parse arguments
+PROMPT=""
+INTERACTIVE=false
+SERVER_MODE=false
+SERVER_PORT=8080
+MCP_MODE=false
+SYSTEM_PROMPT=""
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -m|--model)
+            MODEL_PATH="$2"
+            shift 2
+            ;;
+        -c|--ctx)
+            CONTEXT_SIZE="$2"
+            shift 2
+            ;;
+        -t|--threads)
+            THREADS="$2"
+            shift 2
+            ;;
+        --temp)
+            TEMP="$2"
+            shift 2
+            ;;
+        --top-p)
+            TOP_P="$2"
+            shift 2
+            ;;
+        --top-k)
+            TOP_K="$2"
+            shift 2
+            ;;
+        -n|--max-tokens)
+            N_PREDICT="$2"
+            shift 2
+            ;;
+        -r|--repeat-penalty)
+            REPEAT_PENALTY="$2"
+            shift 2
+            ;;
+        -s|--system)
+            SYSTEM_PROMPT="$2"
+            shift 2
+            ;;
+        -i|--interactive)
+            INTERACTIVE=true
+            shift
+            ;;
+        --server)
+            SERVER_MODE=true
+            shift
+            ;;
+        --server-port)
+            SERVER_PORT="$2"
+            shift 2
+            ;;
+        --mcp)
+            MCP_MODE=true
+            shift
+            ;;
+        -h|--help)
+            show_help
+            exit 0
+            ;;
+        -*)
+            echo "Unknown option: $1" >&2
+            show_help
+            exit 1
+            ;;
+        *)
+            PROMPT="$1"
+            shift
+            ;;
+    esac
+done
+
+# Read from stdin if no prompt given and not interactive/server/mcp
+if [ -z "$PROMPT" ] && [ "$INTERACTIVE" = false ] && [ "$SERVER_MODE" = false ] && [ "$MCP_MODE" = false ]; then
+    if [ ! -t 0 ]; then
+        PROMPT=$(cat)
+    fi
+fi
+
+# MCP server mode
+if [ "$MCP_MODE" = true ]; then
+    if [ ! -f "$MCP_SERVER" ]; then
+        echo "Error: MCP server not found at $MCP_SERVER" >&2
+        exit 1
+    fi
+    exec python3 "$MCP_SERVER"
+fi
+
+# Server mode (OpenAI-compatible API)
+if [ "$SERVER_MODE" = true ]; then
+    echo "Starting llama-server on port $SERVER_PORT..." >&2
+    echo "API endpoint: http://localhost:$SERVER_PORT/v1/chat/completions" >&2
+    exec "$LLAMA_SERVER" \
+        -m "$MODEL_PATH" \
+        -c "$CONTEXT_SIZE" \
+        -t "$THREADS" \
+        --port "$SERVER_PORT" \
+        --host 0.0.0.0 \
+        --ctx-size "$CONTEXT_SIZE" \
+        --temp "$TEMP" \
+        --top-p "$TOP_P" \
+        --top-k "$TOP_K" \
+        --repeat-penalty "$REPEAT_PENALTY" \
+        -n "$N_PREDICT"
+fi
+
+# Build common llama-cli args
+LLAMA_ARGS=(
+    -m "$MODEL_PATH"
+    -c "$CONTEXT_SIZE"
+    -t "$THREADS"
+    --temp "$TEMP"
+    --top-p "$TOP_P"
+    --top-k "$TOP_K"
+    --repeat-penalty "$REPEAT_PENALTY"
+    -n "$N_PREDICT"
+)
+
+if [ -n "$SYSTEM_PROMPT" ]; then
+    LLAMA_ARGS+=(--system-prompt "$SYSTEM_PROMPT")
+fi
+
+# Interactive chat mode
+if [ "$INTERACTIVE" = true ]; then
+    echo "Decodium AI Agent - Interactive mode (Ctrl+C to exit)"
+    echo "Model: $MODEL_PATH"
+    echo "Context: $CONTEXT_SIZE tokens, Threads: $THREADS"
+    echo "---"
+    exec "$LLAMA_CLI" "${LLAMA_ARGS[@]}" -i
+fi
+
+# Single prompt mode
+if [ -z "$PROMPT" ]; then
+    echo "Error: No prompt provided" >&2
+    show_help
+    exit 1
+fi
+
+exec "$LLAMA_CLI" "${LLAMA_ARGS[@]}" -p "$PROMPT"

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <rect width="256" height="256" rx="32" fill="#0d2b45"/>
+  <rect x="16" y="16" width="224" height="224" rx="24" fill="none" stroke="#00b4d8" stroke-width="4"/>
+  <rect x="32" y="32" width="192" height="192" rx="16" fill="#00b4d8" opacity="0.1"/>
+  <text x="128" y="120" font-family="monospace" font-size="96" font-weight="bold" fill="#00b4d8" text-anchor="middle">AI</text>
+  <text x="128" y="170" font-family="monospace" font-size="20" fill="#90e0ef" text-anchor="middle">DECODIUM</text>
+  <circle cx="200" cy="56" r="8" fill="#00b4d8"/>
+  <circle cx="56" cy="200" r="8" fill="#00b4d8"/>
+</svg>

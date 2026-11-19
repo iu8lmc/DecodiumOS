@@ -1,0 +1,21 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Decodium AI Agent
+GenericName=Local LLM Assistant
+Comment=Local AI agent for ham radio operations (runs offline on CPU)
+Exec=decodium-ai --interactive
+Terminal=true
+Icon=decodium-ai
+Categories=HamRadio;System;Utility;
+Keywords=AI;LLM;hamradio;decodium;llama.cpp;
+StartupNotify=true
+Actions=Server;MCP;
+
+[Desktop Action Server]
+Name=Start API Server (port 8080)
+Exec=gnome-terminal --title="Decodium AI Server" -- bash -c 'decodium-ai --server; exec bash'
+
+[Desktop Action MCP]
+Name=Start MCP Server (stdio)
+Exec=gnome-terminal --title="Decodium AI MCP" -- bash -c 'decodium-ai --mcp; exec bash'

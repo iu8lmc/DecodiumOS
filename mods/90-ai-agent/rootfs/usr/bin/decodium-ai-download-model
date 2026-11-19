@@ -1,0 +1,156 @@
+#!/bin/bash
+# decodium-ai-download-model - Download/update the LLM model for decodium-ai
+# Usage: decodium-ai-download-model [OPTIONS]
+
+set -euo pipefail
+
+INSTALL_DIR="/usr/lib/decodium-ai"
+MODEL_DIR="${INSTALL_DIR}/models"
+MODEL_CONF="${INSTALL_DIR}/model.conf"
+
+# Default model (matches install.sh)
+DEFAULT_REPO="Qwen/Qwen2.5-3B-Instruct-GGUF"
+DEFAULT_FILE="qwen2.5-3b-instruct-q4_k_m.gguf"
+DEFAULT_URL="https://huggingface.co/${DEFAULT_REPO}/resolve/main/${DEFAULT_FILE}"
+
+REPO="${AI_MODEL_REPO:-$DEFAULT_REPO}"
+FILE="${AI_MODEL_FILE:-$DEFAULT_FILE}"
+URL="${AI_MODEL_URL:-$DEFAULT_URL}"
+FORCE=false
+LIST_MODELS=false
+
+show_help() {
+    cat <<EOF
+decodium-ai-download-model - Download/update LLM model for decodium-ai
+
+Usage:
+    decodium-ai-download-model [OPTIONS]
+
+Options:
+    -r, --repo REPO        HuggingFace repo (default: $DEFAULT_REPO)
+    -f, --file FILE        Model filename (default: $DEFAULT_FILE)
+    -u, --url URL          Full download URL (overrides repo/file)
+    --force                Force re-download even if model exists
+    -l, --list             List available models from default repo
+    -h, --help             Show this help
+
+Environment:
+    AI_MODEL_REPO          Override default repo
+    AI_MODEL_FILE          Override default file
+    AI_MODEL_URL           Override full URL
+
+Examples:
+    decodium-ai-download-model
+    decodium-ai-download-model --repo "TheBloke/Llama-2-7B-Chat-GGUF" --file "llama-2-7b-chat.q4_k_m.gguf"
+    decodium-ai-download-model --list
+EOF
+}
+
+# List available models from HuggingFace repo
+list_models() {
+    local repo="${1:-$DEFAULT_REPO}"
+    echo "Fetching available models from https://huggingface.co/${repo}..."
+    curl -sL "https://huggingface.co/api/models/${repo}/tree/main" | \
+        python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    for item in data:
+        if item['path'].endswith('.gguf'):
+            size_mb = item.get('size', 0) / 1024 / 1024
+            print(f\"  {item['path']:50s}  {size_mb:.1f} MB\")
+except Exception as e:
+    print(f'Error: {e}', file=sys.stderr)
+    sys.exit(1)
+"
+}
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -r|--repo)
+            REPO="$2"
+            URL="https://huggingface.co/${REPO}/resolve/main/${FILE}"
+            shift 2
+            ;;
+        -f|--file)
+            FILE="$2"
+            URL="https://huggingface.co/${REPO}/resolve/main/${FILE}"
+            shift 2
+            ;;
+        -u|--url)
+            URL="$2"
+            shift 2
+            ;;
+        --force)
+            FORCE=true
+            shift
+            ;;
+        -l|--list)
+            LIST_MODELS=true
+            shift
+            ;;
+        -h|--help)
+            show_help
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1" >&2
+            show_help
+            exit 1
+            ;;
+    esac
+done
+
+if [ "$LIST_MODELS" = true ]; then
+    list_models "$REPO"
+    exit 0
+fi
+
+# Check if running as root (needed for /usr/lib)
+if [ "$(id -u)" -ne 0 ]; then
+    echo "Error: This script must be run as root (sudo)" >&2
+    exit 1
+fi
+
+# Check if model already exists
+MODEL_PATH="${MODEL_DIR}/${FILE}"
+if [ -f "$MODEL_PATH" ] && [ "$FORCE" = false ]; then
+    echo "Model already exists at $MODEL_PATH"
+    echo "Use --force to re-download"
+    exit 0
+fi
+
+echo "Downloading model from $URL..."
+mkdir -p "$MODEL_DIR"
+
+# Download with progress
+curl --fail --show-error --location --progress-bar \
+    -o "${MODEL_PATH}.tmp" \
+    "$URL"
+
+# Verify download
+if [ ! -s "${MODEL_PATH}.tmp" ]; then
+    echo "Error: Download failed or file is empty" >&2
+    rm -f "${MODEL_PATH}.tmp"
+    exit 1
+fi
+
+# Move into place
+mv "${MODEL_PATH}.tmp" "$MODEL_PATH"
+echo "Model saved to $MODEL_PATH"
+
+# Update model.conf if it exists
+if [ -f "$MODEL_CONF" ]; then
+    # Update MODEL_PATH and MODEL_NAME in model.conf
+    sed -i "s|^MODEL_PATH=.*|MODEL_PATH=${MODEL_PATH}|" "$MODEL_CONF"
+    sed -i "s|^MODEL_NAME=.*|MODEL_NAME=${FILE}|" "$MODEL_CONF"
+    echo "Updated $MODEL_CONF"
+fi
+
+# Verify model works with llama-cli
+if [ -x "${INSTALL_DIR}/llama-cli" ]; then
+    echo "Verifying model..."
+    "${INSTALL_DIR}/llama-cli" -m "$MODEL_PATH" -p "OK" -n 1 --temp 0.1 2>/dev/null | grep -q "OK" && echo "Model verification passed" || echo "Warning: Model verification failed (may still work)"
+fi
+
+echo "Done. You can now use: decodium-ai \"your prompt\""
